@@ -17,27 +17,30 @@ class Renderer3D(private val terrain: Terrain) : JPanel(), KeyListener {
 
     private val collisionDetector = CollisionDetector(terrain)
     private val viewFrustum = ViewFrustum(aspectRatio = 800.0 / 600.0)
+    private val lod = LevelOfDetail(terrain)
     private val hud = HeadsUpDisplay()
 
     // Rendering stats
     private var lastFrameTime = System.currentTimeMillis()
     private var frameCount = 0
     private var currentFPS = 0
+    private var triangleCount = 0
 
     // FOV and perspective settings
     private companion object {
         private const val FOV = 90.0
         private const val NEAR_PLANE = 0.1
         private const val FAR_PLANE = 1000.0
+        private const val RENDER_DISTANCE = 100.0  // Increased from 80 for 200x200 terrain
     }
 
-    private data class Point3D(
+    data class Point3D(
         val x: Int,
         val y: Int,
         val z: Double
     )
 
-    private data class Triangle(
+    data class Triangle(
         val p1: Point3D,
         val p2: Point3D,
         val p3: Point3D,
@@ -64,7 +67,6 @@ class Renderer3D(private val terrain: Terrain) : JPanel(), KeyListener {
                 camera.rotate(deltaX, deltaY)
                 lastMouseX = e.x
                 lastMouseY = e.y
-                repaint()
             }
         })
 
@@ -127,29 +129,52 @@ class Renderer3D(private val terrain: Terrain) : JPanel(), KeyListener {
 
     private fun renderTerrain(bg: Graphics2D) {
         val triangles = mutableListOf<Triangle>()
+        triangleCount = 0
 
-        // Render only nearby terrain for better performance
-        val renderDistance = 80
         val camGridX = camera.x.toInt()
         val camGridY = camera.y.toInt()
 
-        for (x in maxOf(0, camGridX - renderDistance) until minOf(terrain.width - 1, camGridX + renderDistance)) {
-            for (y in maxOf(0, camGridY - renderDistance) until minOf(terrain.height - 1, camGridY + renderDistance)) {
+        // Adaptive rendering: use LOD based on distance
+        for (x in maxOf(0, camGridX - RENDER_DISTANCE.toInt()) until minOf(
+            terrain.width - 1,
+            camGridX + RENDER_DISTANCE.toInt()
+        )) {
+            for (y in maxOf(0, camGridY - RENDER_DISTANCE.toInt()) until minOf(
+                terrain.height - 1,
+                camGridY + RENDER_DISTANCE.toInt()
+            )) {
+                // Calculate distance from camera for LOD determination
+                val dx = x - camera.x
+                val dy = y - camera.y
+                val distanceSquared = dx * dx + dy * dy
+
+                // Get appropriate LOD skip rate
+                val skipRate = lod.getLODSkipRate(distanceSquared)
+
+                // Skip vertices not aligned with LOD level
+                if ((x % skipRate != 0) || (y % skipRate != 0)) continue
+
+                val nextX = x + skipRate
+                val nextY = y + skipRate
+
+                if (nextX >= terrain.width || nextY >= terrain.height) continue
+
                 val p1 = project3D(x.toDouble(), y.toDouble(), terrain.getHeight(x, y))
-                val p2 = project3D((x + 1).toDouble(), y.toDouble(), terrain.getHeight(x + 1, y))
-                val p3 = project3D(x.toDouble(), (y + 1).toDouble(), terrain.getHeight(x, y + 1))
-                val p4 = project3D((x + 1).toDouble(), (y + 1).toDouble(), terrain.getHeight(x + 1, y + 1))
+                val p2 = project3D(nextX.toDouble(), y.toDouble(), terrain.getHeight(nextX, y))
+                val p3 = project3D(x.toDouble(), nextY.toDouble(), terrain.getHeight(x, nextY))
+                val p4 = project3D(nextX.toDouble(), nextY.toDouble(), terrain.getHeight(nextX, nextY))
 
                 if (p1 != null && p2 != null && p3 != null && p4 != null) {
                     val h1 = (terrain.getHeight(x, y)
-                            + terrain.getHeight(x + 1, y)
-                            + terrain.getHeight(x, y + 1)) / 3
-                    val h2 = (terrain.getHeight(x + 1, y)
-                            + terrain.getHeight(x, y + 1)
-                            + terrain.getHeight(x + 1, y + 1)) / 3
+                            + terrain.getHeight(nextX, y)
+                            + terrain.getHeight(x, nextY)) / 3
+                    val h2 = (terrain.getHeight(nextX, y)
+                            + terrain.getHeight(x, nextY)
+                            + terrain.getHeight(nextX, nextY)) / 3
 
                     triangles.add(Triangle(p1, p2, p3, terrain.getColorForHeight(h1), p1.z + p2.z + p3.z))
                     triangles.add(Triangle(p2, p4, p3, terrain.getColorForHeight(h2), p2.z + p4.z + p3.z))
+                    triangleCount += 2
                 }
             }
         }
@@ -196,7 +221,7 @@ class Renderer3D(private val terrain: Terrain) : JPanel(), KeyListener {
         val screenX = (width / 2 + px * scale * width / 800).toInt()
         val screenY = (height / 2 - py * scale * height / 600).toInt()
 
-        // Cull points outside screen
+        // Cull points outside screen with margin
         if (screenX < -100 || screenX > width + 100 || screenY < -100 || screenY > height + 100) {
             return null
         }
