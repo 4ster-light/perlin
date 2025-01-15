@@ -5,18 +5,19 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Heads-up display showing player stats and mini-map
+ * Heads-up display showing player stats and mini-map with modern styling
  */
 class HeadsUpDisplay {
     companion object {
         private const val HUD_PADDING = 10
-        private const val MINI_MAP_SIZE = 150
+        private const val MINI_MAP_SIZE = 180
         private const val MINI_MAP_PADDING = 10
         private const val FONT_SIZE = 12f
 
         private fun textColor() = Color.WHITE
-        private fun textBackground() = Color(0, 0, 0, 200)
-        private fun miniMapBackground() = Color(30, 30, 30, 200)
+        private fun textBackground() = Color(0, 0, 0, 210)
+        private fun miniMapBackground() = Color(20, 20, 30, 220)
+        private fun accentColor() = Color(100, 150, 255)
     }
 
     data class HUDData(
@@ -44,36 +45,58 @@ class HeadsUpDisplay {
 
         // Draw controls hint (bottom-left)
         drawControlsHint(g, height)
+
+        // Draw compass indicator (top-center)
+        drawCompass(g, hudData, width)
     }
 
     private fun drawStatsPanel(g: Graphics2D, hudData: HUDData, x: Int, y: Int) {
         val font = g.font.deriveFont(FONT_SIZE)
+        val boldFont = font.deriveFont(Font.BOLD)
         val metrics = g.getFontMetrics(font)
 
         val stats = listOf(
-            "FPS: ${hudData.fps}",
+            "═ POSITION ═",
             "X: ${String.format("%.1f", hudData.cameraX)}",
             "Y: ${String.format("%.1f", hudData.cameraY)}",
             "Z: ${String.format("%.1f", hudData.cameraZ)}",
-            "Altitude: ${String.format("%.1f", hudData.cameraZ - hudData.terrain.getColorForHeight(hudData.cameraZ).let { 0.0 })}"
+            "",
+            "═ PERFORMANCE ═",
+            "FPS: ${hudData.fps}",
+            "Dir: ${(hudData.yaw.toInt() + 360) % 360}°"
         )
 
-        val lineHeight = metrics.height + 2
+        val lineHeight = metrics.height + 3
         val panelWidth = stats.maxOf { metrics.stringWidth(it) } + 20
-        val panelHeight = stats.size * lineHeight + 10
+        val panelHeight = stats.size * lineHeight + 15
 
-        // Draw semi-transparent background
+        // Draw semi-transparent background with border
         g.color = textBackground()
         g.fillRect(x, y, panelWidth, panelHeight)
 
-        // Draw border
-        g.color = textColor()
+        g.color = accentColor()
+        g.stroke = BasicStroke(2f)
         g.drawRect(x, y, panelWidth, panelHeight)
+
+        // Draw corner decorations
+        g.drawLine(x + 5, y + 5, x + 15, y + 5)
+        g.drawLine(x + 5, y + 5, x + 5, y + 15)
+        g.drawLine(x + panelWidth - 15, y + 5, x + panelWidth - 5, y + 5)
+        g.drawLine(x + panelWidth - 5, y + 5, x + panelWidth - 5, y + 15)
 
         // Draw text
         g.font = font
         g.color = textColor()
         stats.forEachIndexed { index, stat ->
+            if (stat.startsWith("═")) {
+                g.font = boldFont
+                g.color = accentColor()
+            } else if (stat.isEmpty()) {
+                g.font = font
+            } else {
+                g.font = font
+                g.color = textColor()
+            }
             g.drawString(stat, x + 10, y + 15 + index * lineHeight)
         }
     }
@@ -81,17 +104,22 @@ class HeadsUpDisplay {
     private fun drawMiniMap(g: Graphics2D, hudData: HUDData, x: Int, y: Int) {
         val scale = MINI_MAP_SIZE.toDouble() / maxOf(hudData.terrainWidth, hudData.terrainHeight)
 
-        // Draw background
+        // Draw background with border
         g.color = miniMapBackground()
         g.fillRect(x, y, MINI_MAP_SIZE, MINI_MAP_SIZE)
 
-        // Draw border
-        g.color = textColor()
-        g.stroke = BasicStroke(1.5f)
+        g.color = accentColor()
+        g.stroke = BasicStroke(2f)
         g.drawRect(x, y, MINI_MAP_SIZE, MINI_MAP_SIZE)
 
-        // Draw terrain height map (simplified)
-        val sampleRate = maxOf(1, hudData.terrainWidth / (MINI_MAP_SIZE / 2))
+        // Draw corner decorations
+        g.drawLine(x + 5, y + 5, x + 15, y + 5)
+        g.drawLine(x + 5, y + 5, x + 5, y + 15)
+        g.drawLine(x + MINI_MAP_SIZE - 15, y + 5, x + MINI_MAP_SIZE - 5, y + 5)
+        g.drawLine(x + MINI_MAP_SIZE - 5, y + 5, x + MINI_MAP_SIZE - 5, y + 15)
+
+        // Draw terrain height map with adaptive sampling
+        val sampleRate = maxOf(1, hudData.terrainWidth / (MINI_MAP_SIZE / 3))
         for (ix in 0 until hudData.terrainWidth step sampleRate) {
             for (iy in 0 until hudData.terrainHeight step sampleRate) {
                 val height = hudData.terrain.getHeight(ix, iy)
@@ -110,15 +138,73 @@ class HeadsUpDisplay {
         val playerScreenX = x + (hudData.cameraX * scale).toInt()
         val playerScreenY = y + (hudData.cameraY * scale).toInt()
 
-        g.color = Color.YELLOW
-        g.fillOval(playerScreenX - 3, playerScreenY - 3, 6, 6)
+        // Draw position crosshair
+        g.color = Color(255, 215, 0, 255)
+        g.stroke = BasicStroke(2f)
+        g.drawOval(playerScreenX - 5, playerScreenY - 5, 10, 10)
+        g.drawLine(playerScreenX - 8, playerScreenY, playerScreenX + 8, playerScreenY)
+        g.drawLine(playerScreenX, playerScreenY - 8, playerScreenX, playerScreenY + 8)
 
-        // Draw direction indicator
+        // Draw direction indicator (viewing direction)
         val radYaw = Math.toRadians(hudData.yaw)
-        val dirLength = 15.0
+        val dirLength = 20.0
         val dirX = playerScreenX + (cos(radYaw) * dirLength).toInt()
         val dirY = playerScreenY + (sin(radYaw) * dirLength).toInt()
+        g.color = Color(100, 200, 255)
         g.drawLine(playerScreenX, playerScreenY, dirX, dirY)
+
+        // Draw grid lines for reference
+        g.color = Color(60, 60, 80, 100)
+        g.stroke = BasicStroke(0.5f)
+        val gridSpacing = (MINI_MAP_SIZE / 4).coerceAtLeast(10)
+        for (i in 0..4) {
+            g.drawLine(x + i * gridSpacing, y, x + i * gridSpacing, y + MINI_MAP_SIZE)
+            g.drawLine(x, y + i * gridSpacing, x + MINI_MAP_SIZE, y + i * gridSpacing)
+        }
+    }
+
+    private fun drawCompass(g: Graphics2D, hudData: HUDData, width: Int) {
+        val centerX = width / 2
+        val centerY = 20
+        val radius = 15
+
+        val font = g.font.deriveFont(9f)
+        g.font = font
+
+        // Draw compass rose background
+        g.color = Color(0, 0, 0, 200)
+        g.fillOval(centerX - radius - 2, centerY - radius - 2, (radius + 2) * 2, (radius + 2) * 2)
+
+        g.color = accentColor()
+        g.stroke = BasicStroke(1.5f)
+        g.drawOval(centerX - radius, centerY - radius, radius * 2, radius * 2)
+
+        // Draw cardinal directions
+        val directions = listOf(
+            Triple("N", 0.0, true),
+            Triple("E", 90.0, false),
+            Triple("S", 180.0, false),
+            Triple("W", 270.0, false)
+        )
+
+        directions.forEach { (dir, angle, bold) ->
+            val radians = Math.toRadians(angle)
+            val x = centerX + (cos(radians) * (radius - 5)).toInt()
+            val y = centerY + (sin(radians) * (radius - 5)).toInt()
+
+            g.color = if (bold) Color(255, 100, 100) else textColor()
+            if (bold) g.font = font.deriveFont(Font.BOLD)
+            g.drawString(dir, x - 3, y + 3)
+            g.font = font
+        }
+
+        // Draw player direction indicator
+        val radYaw = Math.toRadians(hudData.yaw)
+        val dirX = centerX + (cos(radYaw) * radius * 0.7).toInt()
+        val dirY = centerY + (sin(radYaw) * radius * 0.7).toInt()
+        g.color = Color(100, 200, 255)
+        g.fillOval(dirX - 2, dirY - 2, 4, 4)
+        g.drawOval(dirX - 2, dirY - 2, 4, 4)
     }
 
     private fun drawControlsHint(g: Graphics2D, height: Int) {
@@ -126,23 +212,29 @@ class HeadsUpDisplay {
         val metrics = g.getFontMetrics(font)
 
         val controls = listOf(
-            "Controls: WASD=Move | Mouse=Look | Q/E=Up/Down | Click=Regenerate"
+            "WASD: Move | Mouse: Look | Q/E: Up/Down | Regen: Generate New Terrain"
         )
 
-        val lineHeight = metrics.height + 2
+        val lineHeight = metrics.height + 3
         val panelWidth = metrics.stringWidth(controls[0]) + 20
         val panelHeight = lineHeight + 10
 
         val x = HUD_PADDING
         val y = height - panelHeight - HUD_PADDING
 
-        // Draw semi-transparent background
+        // Draw semi-transparent background with border
         g.color = textBackground()
         g.fillRect(x, y, panelWidth, panelHeight)
 
-        // Draw border
-        g.color = textColor()
+        g.color = accentColor()
+        g.stroke = BasicStroke(1.5f)
         g.drawRect(x, y, panelWidth, panelHeight)
+
+        // Draw corner decorations
+        g.drawLine(x + 3, y + 3, x + 10, y + 3)
+        g.drawLine(x + 3, y + 3, x + 3, y + 10)
+        g.drawLine(x + panelWidth - 10, y + 3, x + panelWidth - 3, y + 3)
+        g.drawLine(x + panelWidth - 3, y + 3, x + panelWidth - 3, y + 10)
 
         // Draw text
         g.font = font
