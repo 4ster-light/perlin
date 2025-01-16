@@ -9,10 +9,10 @@ import kotlin.math.sin
  */
 class HeadsUpDisplay {
     companion object {
-        private const val HUD_PADDING = 10
-        private const val MINI_MAP_SIZE = 180
-        private const val MINI_MAP_PADDING = 10
-        private const val FONT_SIZE = 12f
+        private const val HUD_PADDING = 15
+        private const val MINI_MAP_SIZE = 200  // Increased from 180
+        private const val MINI_MAP_PADDING = 15
+        private const val FONT_SIZE = 13f
 
         private fun textColor() = Color.WHITE
         private fun textBackground() = Color(0, 0, 0, 210)
@@ -146,10 +146,11 @@ class HeadsUpDisplay {
         g.drawLine(playerScreenX, playerScreenY - 8, playerScreenX, playerScreenY + 8)
 
         // Draw direction indicator (viewing direction)
+        // yaw=0 looks along +Y axis, so use sin for X and cos for Y
         val radYaw = Math.toRadians(hudData.yaw)
         val dirLength = 20.0
-        val dirX = playerScreenX + (cos(radYaw) * dirLength).toInt()
-        val dirY = playerScreenY + (sin(radYaw) * dirLength).toInt()
+        val dirX = playerScreenX + (sin(radYaw) * dirLength).toInt()
+        val dirY = playerScreenY + (cos(radYaw) * dirLength).toInt()
         g.color = Color(100, 200, 255)
         g.drawLine(playerScreenX, playerScreenY, dirX, dirY)
 
