@@ -15,9 +15,9 @@ class Camera(
     companion object {
         private const val MIN_PITCH = -89.0
         private const val MAX_PITCH = 89.0
-        private const val MOVEMENT_SPEED = 0.3
-        private const val VERTICAL_SPEED = 0.2
-        private const val MOUSE_SENSITIVITY = 0.1
+        private const val MOVEMENT_SPEED = 1.2      // Increased for responsive movement
+        private const val VERTICAL_SPEED = 0.8      // Increased for responsive vertical movement
+        private const val MOUSE_SENSITIVITY = 0.15  // Increased for better mouse look
     }
 
     private val inputState = mutableMapOf<InputKey, Boolean>()
