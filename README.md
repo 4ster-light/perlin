@@ -37,7 +37,8 @@ perlin/
 └── perlin.sh           - Manager script
 ```
 
-> [!NOTE] See [QUICKSTART.md](QUICKSTART.md) for more information on the project
+> [!NOTE]
+> See [QUICKSTART.md](QUICKSTART.md) for more information on the project
 > structure and manager script
 
 ## Building
