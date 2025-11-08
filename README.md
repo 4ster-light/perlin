@@ -1,29 +1,33 @@
 # Perlin Noise Procedural Landscape Generator
 
-A 3D procedural terrain generator using Perlin noise algorithm, implemented in Kotlin with real-time 3D visualization.
+A 3D procedural terrain generator using Perlin noise algorithm, implemented in
+Kotlin with real-time 3D visualization.
 
 ![Showcase Image](https://github.com/4ster-light/perlin/blob/main/Showcase.png)
 
 ## Features
 
-- **Perlin Noise Algorithm**: Pure implementation of Ken Perlin's noise algorithm for natural-looking terrain
-- **Octave Noise**: Multiple noise frequencies combined for realistic fractal terrain details
+- **Perlin Noise Algorithm**: Pure implementation of Ken Perlin's noise
+  algorithm for natural-looking terrain
+- **Octave Noise**: Multiple noise frequencies combined for realistic fractal
+  terrain details
 - **3D Visualization**: Real-time 3D rendering with perspective projection
 - **Interactive Camera**:
-    - Drag with mouse to rotate the view
-    - Scroll wheel to zoom in/out
+  - Drag with mouse to rotate the view
+  - Scroll wheel to zoom in/out
 - **Color-coded Elevation**:
-    - Deep blue: Deep water
-    - Light blue: Shallow water
-    - Tan: Sandy beaches
-    - Green: Grasslands
-    - Brown: Rocky mountains
-    - White: Snow-capped peaks
-- **Procedural Generation**: Click "Regenerate Terrain" to create new landscapes with different seeds
+  - Deep blue: Deep water
+  - Light blue: Shallow water
+  - Tan: Sandy beaches
+  - Green: Grasslands
+  - Brown: Rocky mountains
+  - White: Snow-capped peaks
+- **Procedural Generation**: Click "Regenerate Terrain" to create new landscapes
+  with different seeds
 
 ## Project Structure
 
-```
+```plaintext
 perlin/
 ├── src/
 │   ├── Main.kt         - Application entry point and GUI setup
@@ -33,13 +37,14 @@ perlin/
 └── perlin.sh           - Manager script
 ```
 
-> See [QUICKSTART.md](QUICKSTART.md) for more information on the project structure and manager script
+> [!NOTE] See [QUICKSTART.md](QUICKSTART.md) for more information on the project
+> structure and manager script
 
 ## Building
 
 The project uses IntelliJ IDEA's build system.
 
-### Easy way (Recommended):
+### Easy way (Recommended)
 
 ```bash
 ./perlin.sh
@@ -51,7 +56,7 @@ The script automatically detects Kotlin compiler from:
 - IntelliJ IDEA's bundled compiler
 - Common installation paths
 
-### Manual compilation:
+### Manual compilation
 
 ```bash
 kotlinc src/*.kt -include-runtime -d perlin.jar
@@ -61,7 +66,7 @@ Or use IntelliJ IDEA to build the project directly.
 
 ## Running
 
-### Unified script (Recommended):
+### Unified script (Recommended)
 
 ```bash
 ./perlin.sh              # Build (if needed) and run
@@ -69,13 +74,13 @@ Or use IntelliJ IDEA to build the project directly.
 ./perlin.sh --help       # Show all options
 ```
 
-### From JAR:
+### From JAR
 
 ```bash
 java -jar perlin.jar
 ```
 
-### From IntelliJ IDEA:
+### From IntelliJ IDEA
 
 Open the project and run the `Main.kt` file.
 
@@ -115,11 +120,11 @@ You can modify terrain parameters in `Main.kt`:
 
 ```kotlin
 Terrain(
-    width = 100,           // Grid width
-    height = 100,          // Grid height
-    perlinNoise = perlinNoise,
-    scale = 0.05,          // Smaller = larger features
-    octaves = 5,           // More = more detail
+    width = 100,            // Grid width
+    height = 100,           // Grid height
+    perlinNoise,
+    scale = 0.05,           // Smaller = larger features
+    octaves = 5,            // More = more detail
     heightMultiplier = 50.0 // Vertical scale
 )
 ```
