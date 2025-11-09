@@ -5,6 +5,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 class Renderer3D(private val terrain: Terrain) : JPanel() {
+    // Camera settings
     private var rotationX = 80.0  // Camera tilt - Higher is more horizontal (90° would be perfectly horizontal)
     private var rotationZ = 45.0  // Camera rotation around Z axis (sideways rotation)
     private var zoom = 6.0
@@ -16,6 +17,20 @@ class Renderer3D(private val terrain: Terrain) : JPanel() {
     private var lastMouseX = 0
     private var lastMouseY = 0
     private var isDragging = false
+
+    private data class Point3D(
+        val x: Int,
+        val y: Int,
+        val z: Double
+    )
+
+    private data class Triangle(
+        val p1: Point3D,
+        val p2: Point3D,
+        val p3: Point3D,
+        val color: Color,
+        val avgZ: Double
+    )
 
     init {
         preferredSize = Dimension(800, 600)
@@ -89,10 +104,12 @@ class Renderer3D(private val terrain: Terrain) : JPanel() {
 
                 // Create two triangles for this cell
                 if (p1 != null && p2 != null && p3 != null && p4 != null) {
-                    val h1 = (terrain.getHeight(x, y) + terrain.getHeight(x + 1, y) + terrain.getHeight(x, y + 1)) / 3
-                    val h2 = (terrain.getHeight(x + 1, y) + terrain.getHeight(x, y + 1) + terrain.getHeight(
-                        x + 1, y + 1
-                    )) / 3
+                    val h1 = (terrain.getHeight(x, y)
+                            + terrain.getHeight(x + 1, y)
+                            + terrain.getHeight(x, y + 1)) / 3
+                    val h2 = (terrain.getHeight(x + 1, y)
+                            + terrain.getHeight(x, y + 1)
+                            + terrain.getHeight(x + 1, y + 1)) / 3
 
                     triangles.add(Triangle(p1, p2, p3, terrain.getColorForHeight(h1), p1.z + p2.z + p3.z))
                     triangles.add(Triangle(p2, p4, p3, terrain.getColorForHeight(h2), p2.z + p4.z + p3.z))
@@ -152,9 +169,7 @@ class Renderer3D(private val terrain: Terrain) : JPanel() {
         pz += cameraDistance
 
         // Clip points behind camera (near plane)
-        if (pz <= 10) {
-            return null
-        }
+        if (pz <= 10) return null
 
         // Perspective projection
         val perspective = 800.0
@@ -169,10 +184,4 @@ class Renderer3D(private val terrain: Terrain) : JPanel() {
 
         return Point3D(screenX, screenY, pz)
     }
-
-    data class Point3D(val x: Int, val y: Int, val z: Double)
-
-    data class Triangle(
-        val p1: Point3D, val p2: Point3D, val p3: Point3D, val color: Color, val avgZ: Double
-    )
 }
