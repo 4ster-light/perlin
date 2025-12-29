@@ -43,8 +43,6 @@ perlin/
 
 ## Building
 
-The project uses IntelliJ IDEA's build system.
-
 ### Easy way (Recommended)
 
 ```bash
@@ -125,7 +123,7 @@ Terrain(
     height = 100,           // Grid height
     perlinNoise,
     scale = 0.05,           // Smaller = larger features
-    octaves = 5,            // More = more detail
+    octaves = 5,            // Bigger = more detail
     heightMultiplier = 50.0 // Vertical scale
 )
 ```
