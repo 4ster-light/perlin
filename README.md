@@ -28,55 +28,39 @@ Kotlin with real-time 3D visualization.
 ## Project Structure
 
 ```plaintext
-perlin/
-├── src/
-│   ├── Main.kt         - Application entry point and GUI setup
-│   ├── PerlinNoise.kt  - Perlin noise algorithm implementation
-│   ├── Terrain.kt      - Terrain generation and height mapping
-│   └── Renderer3D.kt   - 3D rendering engine with camera controls
-└── perlin.sh           - Manager script
+src/main/kotlin/
+├── Main.kt         - Application entry point and GUI setup
+├── PerlinNoise.kt  - Perlin noise algorithm implementation
+├── Terrain.kt      - Terrain generation and height mapping
+└── Renderer3D.kt   - 3D rendering engine with camera controls
 ```
 
 > [!NOTE]
-> See [QUICKSTART.md](QUICKSTART.md) for more information on the project
-> structure and manager script
+> See [QUICKSTART.md](QUICKSTART.md) for more information on running and
+> customizing the project
 
 ## Building
 
-### Easy way (Recommended)
+### Using Gradle (Recommended)
 
 ```bash
-./perlin.sh
+./gradlew build
 ```
 
-The script automatically detects Kotlin compiler from:
-
-- System installation
-- IntelliJ IDEA's bundled compiler
-- Common installation paths
-
-### Manual compilation
-
-```bash
-kotlinc src/*.kt -include-runtime -d perlin.jar
-```
-
-Or use IntelliJ IDEA to build the project directly.
+The JAR will be created in `build/libs/perlin-1.0-SNAPSHOT.jar`
 
 ## Running
 
-### Unified script (Recommended)
+### From Gradle
 
 ```bash
-./perlin.sh              # Build (if needed) and run
-./perlin.sh --run-only   # Skip build, just run
-./perlin.sh --help       # Show all options
+./gradlew run
 ```
 
 ### From JAR
 
 ```bash
-java -jar perlin.jar
+java -jar build/libs/perlin-1.0-SNAPSHOT.jar
 ```
 
 ### From IntelliJ IDEA
@@ -85,7 +69,7 @@ Open the project and run the `Main.kt` file.
 
 ## Controls
 
-- **Mouse Drag**: Rotate the camera sideways (horizontal rotation only)
+- **Mouse Drag**: Rotate and tilt the camera
 - **Mouse Scroll**: Zoom in/out
 - **Regenerate Button**: Create a new terrain with a different random seed
 
