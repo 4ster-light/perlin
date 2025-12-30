@@ -2,28 +2,19 @@
 
 ## Running the Application
 
-### Option 1: Use the unified script (Recommended)
+### Option 1: Use Gradle (Recommended)
 
 ```bash
-./perlin.sh
+./gradlew run
 ```
 
 This will automatically build (if needed) and run the application.
 
-**Script options:**
+### Option 2: Build then run the JAR
 
 ```bash
-./perlin.sh               # Build (if needed) and run
-./perlin.sh --build-only  # Only build, don't run
-./perlin.sh --run-only    # Only run (skip build)
-./perlin.sh --force-build # Force rebuild
-./perlin.sh --help        # Show help
-```
-
-### Option 2: Run the JAR directly
-
-```bash
-java -jar perlin.jar
+./gradlew build
+java -jar build/libs/perlin-1.0.0.jar
 ```
 
 ### Option 3: From IntelliJ IDEA
@@ -65,29 +56,18 @@ The colors represent different terrain types based on elevation:
 
 ## Rebuilding
 
-If you make changes to the source code they should be detected by default, but
-if not you can still force it to build:
+If you make changes to the source code, Gradle will detect them automatically on
+the next build:
 
 ```bash
-./perlin.sh --force-build
+./gradlew build
 ```
 
-## Troubleshooting
+To force a clean rebuild:
 
-### Kotlin compiler not found
-
-The script will automatically detect:
-
-- System-installed kotlinc
-- IntelliJ IDEA's bundled Kotlin compiler
-- Common installation locations
-
-If kotlinc is not found, the script provides installation instructions.
-
-### Java not found
-
-If Java is not installed, the script will show installation instructions for
-your platform.
+```bash
+./gradlew clean build
+```
 
 ## Customizing the Terrain
 

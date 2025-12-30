@@ -1,3 +1,5 @@
+package dev.aster
+
 import kotlin.math.floor
 
 class PerlinNoise(seed: Long = System.currentTimeMillis()) {

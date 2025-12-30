@@ -1,3 +1,5 @@
+package dev.aster
+
 import java.awt.Color
 
 class Terrain(
