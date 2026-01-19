@@ -32,15 +32,13 @@ fun main() = SwingUtilities.invokeLater {
     var renderer = Renderer3D(terrain)
     frame.add(renderer, BorderLayout.CENTER)
 
-    // Control panel with modern styling
     val controlPanel = JPanel().apply {
         layout = BorderLayout(10, 5)
         background = Color(35, 35, 45)
         border = javax.swing.BorderFactory.createMatteBorder(1, 0, 0, 0, Color(100, 150, 255))
     }
 
-    // Left info section
-    val leftPanel = JPanel(FlowLayout(FlowLayout.LEFT, 10, 8)).apply {
+    val leftInfoPanel = JPanel(FlowLayout(FlowLayout.LEFT, 10, 8)).apply {
         background = Color(35, 35, 45)
         isOpaque = false
     }
@@ -49,9 +47,8 @@ fun main() = SwingUtilities.invokeLater {
         foreground = Color(200, 200, 200)
         font = Font("Monospaced", Font.PLAIN, 12)
     }
-    leftPanel.add(infoLabel)
+    leftInfoPanel.add(infoLabel)
 
-    // Right button section
     val rightPanel = JPanel(FlowLayout(FlowLayout.RIGHT, 10, 8)).apply {
         background = Color(35, 35, 45)
         isOpaque = false
@@ -120,7 +117,7 @@ fun main() = SwingUtilities.invokeLater {
     }
     rightPanel.add(regenerateButton)
 
-    controlPanel.add(leftPanel, BorderLayout.WEST)
+    controlPanel.add(leftInfoPanel, BorderLayout.WEST)
     controlPanel.add(rightPanel, BorderLayout.EAST)
 
     frame.add(controlPanel, BorderLayout.SOUTH)
@@ -132,7 +129,7 @@ fun main() = SwingUtilities.invokeLater {
     println("╔════════════════════════════════════════════════════════════╗")
     println("║  Perlin Noise Landscape - First Person Experience Started  ║")
     println("╠════════════════════════════════════════════════════════════╣")
-    println("║ Seed: $currentSeed")
+    println("║ Seed: $currentSeed                                        ║")
     println("║ Terrain: 200x200 vertices • Scale: 0.05 • Octaves: 5       ║")
     println("║                                                            ║")
     println("║ Controls:                                                  ║")
@@ -142,4 +139,3 @@ fun main() = SwingUtilities.invokeLater {
     println("║   • Regen     → Generate New Terrain                       ║")
     println("╚════════════════════════════════════════════════════════════╝")
 }
-
