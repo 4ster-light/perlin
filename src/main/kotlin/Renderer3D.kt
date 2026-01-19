@@ -7,9 +7,6 @@ import java.awt.image.BufferedImage
 import javax.swing.JPanel
 import kotlin.math.*
 
-/**
- * First-person 3D renderer with Minecraft-style camera controls
- */
 class Renderer3D(private val terrain: Terrain) : JPanel(), KeyListener {
     
     // Camera position in world space

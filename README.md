@@ -1,29 +1,43 @@
 # Perlin Noise Procedural Landscape Generator
 
-A 3D procedural terrain generator using Perlin noise algorithm, now featuring a **first-person immersive experience**, implemented in Kotlin with real-time 3D visualization.
+A 3D procedural terrain generator using Perlin noise algorithm, now featuring a
+**first-person immersive experience**, implemented in Kotlin with real-time 3D
+visualization.
 
-![Showcase Image](https://github.com/4ster-light/perlin/blob/main/Showcase.png)
+![Showcase Image](./Showcase.png)
 
 ## Features
 
-### 🎮 First-Person Experience
-- **WASD Movement**: Navigate freely through the terrain (forward, backward, strafe left/right)
-- **Mouse Look**: Control camera orientation with mouse movement for immersive exploration
+### First-Person Experience
+
+- **WASD Movement**: Navigate freely through the terrain (forward, backward,
+  strafe left/right)
+- **Mouse Look**: Control camera orientation with mouse movement for immersive
+  exploration
 - **Vertical Control**: Q/E keys to ascend and descend
-- **Collision Detection**: Prevents clipping through terrain with smooth collision response
+- **Collision Detection**: Prevents clipping through terrain with smooth
+  collision response
 - **Bilinear Height Interpolation**: Smooth terrain surface traversal
 
-### 🌍 Terrain Generation
-- **Perlin Noise Algorithm**: Pure implementation of Ken Perlin's noise algorithm for natural-looking terrain
-- **Octave Noise**: Multiple noise frequencies combined for realistic fractal terrain details
-- **Expanded Generation**: 200x200 vertex grid for detailed expansive landscapes (4x original size)
-- **Async Generation**: Non-blocking terrain generation with visual feedback
-- **Procedural Customization**: Click "Regenerate Terrain" to create new landscapes with different seeds
+### Terrain Generation
 
-### 🎨 Advanced Rendering
+- **Perlin Noise Algorithm**: Pure implementation of Ken Perlin's noise
+  algorithm for natural-looking terrain
+- **Octave Noise**: Multiple noise frequencies combined for realistic fractal
+  terrain details
+- **Expanded Generation**: 200x200 vertex grid for detailed expansive landscapes
+  (4x original size)
+- **Async Generation**: Non-blocking terrain generation with visual feedback
+- **Procedural Customization**: Click "Regenerate Terrain" to create new
+  landscapes with different seeds
+
+### Advanced Rendering
+
 - **3D Visualization**: Real-time 3D rendering with perspective projection
-- **Level of Detail (LOD)**: Adaptive detail levels based on camera distance for performance optimization
-- **Frustum Culling**: Intelligent triangle culling to render only visible geometry
+- **Level of Detail (LOD)**: Adaptive detail levels based on camera distance for
+  performance optimization
+- **Frustum Culling**: Intelligent triangle culling to render only visible
+  geometry
 - **Render Distance**: Configurable rendering radius around player position
 - **Color-coded Elevation**:
   - Deep blue: Deep water
@@ -33,7 +47,8 @@ A 3D procedural terrain generator using Perlin noise algorithm, now featuring a 
   - Brown: Rocky mountains
   - White: Snow-capped peaks
 
-### 🎯 Enhanced UI
+### Enhanced UI
+
 - **Heads-Up Display (HUD)**:
   - Real-time position coordinates (X, Y, Z)
   - Performance metrics (FPS counter)
@@ -60,7 +75,8 @@ src/main/kotlin/
 ```
 
 > [!NOTE]
-> See [QUICKSTART.md](QUICKSTART.md) for step-by-step instructions on running and customizing the project
+> See [QUICKSTART.md](QUICKSTART.md) for step-by-step instructions on running
+> and customizing the project
 
 ## Building
 
@@ -92,16 +108,16 @@ Open the project and run the `Main.kt` file.
 
 ## Controls
 
-| Input | Action |
-|-------|--------|
-| **W** | Move forward |
-| **S** | Move backward |
-| **A** | Strafe left |
-| **D** | Strafe right |
-| **Q** | Ascend (move up) |
-| **E** | Descend (move down) |
-| **Mouse Movement** | Look around / rotate camera |
-| **Button Click** | Generate new terrain with different seed |
+| Input              | Action                                   |
+| ------------------ | ---------------------------------------- |
+| **W**              | Move forward                             |
+| **S**              | Move backward                            |
+| **A**              | Strafe left                              |
+| **D**              | Strafe right                             |
+| **Q**              | Ascend (move up)                         |
+| **E**              | Descend (move down)                      |
+| **Mouse Movement** | Look around / rotate camera              |
+| **Button Click**   | Generate new terrain with different seed |
 
 ## Technical Details
 
@@ -204,41 +220,18 @@ companion object {
 ## System Requirements
 
 **Minimum:**
+
 - Processor: Dual-core 2.0 GHz
 - RAM: 512 MB
 - Graphics: Integrated (software rendering)
 
 **Recommended:**
+
 - Processor: Quad-core 2.5 GHz
 - RAM: 2 GB
 - Graphics: Dedicated graphics card
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Changelog
-
-### Version 2.0 - First Person Experience (January 2025)
-- Implemented full first-person camera system with WASD movement
-- Added mouse look for intuitive camera control
-- Expanded terrain from 100x100 to 200x200 vertices
-- Implemented Level of Detail (LOD) system for performance optimization
-- Added modern HUD with position display, FPS counter, mini-map, and compass
-- Enhanced UI styling with modern dark theme
-- Implemented asynchronous terrain generation
-- Added collision detection and terrain boundary constraints
-- Improved documentation with detailed control scheme
-
-### Version 1.0 - Original Release (Initial)
-- Basic Perlin noise terrain generation
-- Rotative camera controls
-- Color-coded elevation visualization
-- Procedural terrain regeneration
-
-## Sponsor
-
-If you like this project, consider supporting me by buying me a coffee.
-
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/B0B41HVJUR)
-
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
+for details.
