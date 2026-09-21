@@ -34,8 +34,6 @@ real-time 3D visualization.
 ### Advanced Rendering
 
 - **3D Visualization**: Real-time 3D rendering with perspective projection
-- **Level of Detail (LOD)**: Adaptive per-triangle detail based on camera distance for
-  performance optimization
 - **Frustum Culling**: Intelligent triangle culling to render only visible
   geometry
 - **Render Distance**: Configurable rendering radius around player position
@@ -74,8 +72,7 @@ src/dev/aster/
 │   └── CollisionDetector.java - Terrain collision detection and camera constraints
 ├── render/
 │   ├── Renderer3D.java        - 3D rendering engine with first-person perspective
-│   ├── ViewFrustum.java       - Camera frustum for rendering optimization
-│   └── LevelOfDetail.java     - Adaptive LOD system for performance tuning
+│   └── ViewFrustum.java       - Camera frustum for rendering optimization
 └── ui/
     └── HeadsUpDisplay.java    - HUD rendering with stats and mini-map
 ```
@@ -143,13 +140,11 @@ The implementation uses:
 
 ### Performance Optimization
 
-- **Level of Detail (LOD)**: Lowers per-triangle detail for distant terrain
-  (the mesh itself stays uniform 1x1 cells to avoid T-junction cracks)
-  - Distance 0-30 units: full detail incl. wireframe (skip rate 1)
-  - Distance 30-60 units: fill only (skip rate 2)
-  - Distance 60+ units: fill only (skip rate 3)
-- **Render Distance**: Only renders terrain within ~100 units of player
-- **Lazy Evaluation**: Triangles generated only as needed
+- **Render Distance**: Only renders terrain within ~120 units of player
+- **Frustum Culling**: Near/far plane checks skip off-screen geometry
+- **Uniform Wireframe Mesh**: Every triangle carries its border, giving the
+  demo its signature polygon-y look (geometric LOD was deliberately rejected:
+  merging heightfield cells cracks the mesh without edge stitching)
 - **Efficient Sorting**: Z-depth sorting for correct occlusion handling
 
 ### Terrain Parameters
@@ -197,7 +192,6 @@ private static final int RENDER_DISTANCE = 120;   // Grid units
 - **Grid Size**: 200x200 is the default balanced size
   - Smaller grids (100x100) for older hardware
   - Larger grids (300x300) for powerful systems
-- **LOD System**: Automatically adjusts quality based on distance
 - **Render Distance**: Reduce for better performance on slower systems
 - **Mouse Sensitivity**: Adjust for comfortable control experience
 - **FPS Counter**: Shows actual rendering performance in real-time

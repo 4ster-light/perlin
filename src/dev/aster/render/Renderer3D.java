@@ -30,12 +30,8 @@ import javax.swing.JPanel;
  * Software-rendered first-person terrain view with mouse look and WASD movement.
  *
  * <p>Movement and collision are delegated to {@link Camera} and
- * {@link CollisionDetector}; visibility culling to {@link ViewFrustum}. The
- * mesh itself is always built from uniform 1x1 grid cells: merging cells into
- * coarser triangles with distance would crack the heightfield (T-junctions)
- * without edge stitching, which is not worth the complexity here. Instead,
- * {@link LevelOfDetail} lowers per-triangle detail (wireframe strokes) with
- * distance. This class only owns projection and rasterization.
+ * {@link CollisionDetector}; visibility culling to {@link ViewFrustum}. This
+ * class only owns projection and rasterization.
  */
 public final class Renderer3D extends JPanel implements KeyListener {
 
@@ -47,7 +43,6 @@ public final class Renderer3D extends JPanel implements KeyListener {
     private final Terrain terrain;
     private final Camera camera;
     private final CollisionDetector collision;
-    private final LevelOfDetail lod;
     private final HeadsUpDisplay hud = new HeadsUpDisplay();
 
     // Mouse control
@@ -67,8 +62,7 @@ public final class Renderer3D extends JPanel implements KeyListener {
             int x2, int y2,
             int x3, int y3,
             double depth,
-            Color color,
-            boolean wireframe) {}
+            Color color) {}
 
     /** Screen coordinates plus depth, or {@code null} when the point is culled. */
     private record ProjectedPoint(int x, int y, double depth) {}
@@ -77,7 +71,6 @@ public final class Renderer3D extends JPanel implements KeyListener {
         this.terrain = terrain;
         this.camera = new Camera(terrain.width() / 2.0, terrain.height() / 2.0, 0.0, 0.0, 0.0);
         this.collision = new CollisionDetector(terrain);
-        this.lod = new LevelOfDetail(terrain);
 
         // Start hovering above the terrain surface
         collision.adjustCameraPosition(camera);
@@ -280,9 +273,6 @@ public final class Renderer3D extends JPanel implements KeyListener {
                 double wy4 = gy + 1;
                 double wz4 = terrain.getHeight(gx + 1, gy + 1);
 
-                // Wireframe strokes only on near, full-detail triangles
-                boolean wireframe = lod.getLODSkipRate(distanceSquared(gx, gy)) == 1;
-
                 // Project all 4 points
                 ProjectedPoint p1 = projectPoint(wx1, wy1, wz1, cosYaw, sinYaw, cosPitch, sinPitch, fovScale, frustum);
                 ProjectedPoint p2 = projectPoint(wx2, wy2, wz2, cosYaw, sinYaw, cosPitch, sinPitch, fovScale, frustum);
@@ -298,8 +288,7 @@ public final class Renderer3D extends JPanel implements KeyListener {
                             p2.x(), p2.y(),
                             p3.x(), p3.y(),
                             depth,
-                            terrain.getColorForHeight(avgHeight),
-                            wireframe));
+                            terrain.getColorForHeight(avgHeight)));
                 }
 
                 // Triangle 2: p2, p4, p3
@@ -311,8 +300,7 @@ public final class Renderer3D extends JPanel implements KeyListener {
                             p4.x(), p4.y(),
                             p3.x(), p3.y(),
                             depth,
-                            terrain.getColorForHeight(avgHeight),
-                            wireframe));
+                            terrain.getColorForHeight(avgHeight)));
                 }
             }
         }
@@ -327,22 +315,13 @@ public final class Renderer3D extends JPanel implements KeyListener {
                     new int[]{tri.x1(), tri.x2(), tri.x3()},
                     new int[]{tri.y1(), tri.y2(), tri.y3()},
                     3);
-            // Wireframe for definition (near triangles only, see LevelOfDetail)
-            if (tri.wireframe()) {
-                g.setColor(tri.color().darker());
-                g.drawPolygon(
-                        new int[]{tri.x1(), tri.x2(), tri.x3()},
-                        new int[]{tri.y1(), tri.y2(), tri.y3()},
-                        3);
-            }
+            // Wireframe for definition
+            g.setColor(tri.color().darker());
+            g.drawPolygon(
+                    new int[]{tri.x1(), tri.x2(), tri.x3()},
+                    new int[]{tri.y1(), tri.y2(), tri.y3()},
+                    3);
         }
-    }
-
-    /** Squared distance from a grid cell to the camera position. */
-    private double distanceSquared(int gx, int gy) {
-        double dx = gx - camera.x;
-        double dy = gy - camera.y;
-        return dx * dx + dy * dy;
     }
 
     /**

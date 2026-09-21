@@ -10,8 +10,8 @@ public final class Camera {
 
     private static final double MIN_PITCH = -89.0;
     private static final double MAX_PITCH = 89.0;
-    private static final double MOVEMENT_SPEED = 0.8;   // Units per frame
-    private static final double VERTICAL_SPEED = 0.5;   // Units per frame (up/down)
+    private static final double MOVEMENT_SPEED = 1.2;   // Units per frame
+    private static final double VERTICAL_SPEED = 0.8;   // Units per frame (up/down)
     private static final double MOUSE_SENSITIVITY = 0.15;  // Increased for better mouse look
 
     /** Directional input keys tracked by the camera. */
