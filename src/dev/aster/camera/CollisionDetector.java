@@ -1,12 +1,13 @@
-package dev.aster;
+package dev.aster.camera;
+
+import dev.aster.terrain.Terrain;
 
 /**
  * Handles collision detection between camera and terrain.
  */
 public final class CollisionDetector {
 
-    private static final double CAMERA_HEIGHT = 2.0;
-    private static final double COLLISION_BUFFER = 1.5;
+    private static final double CAMERA_HEIGHT = 3.0; // Hover height above terrain
 
     private final Terrain terrain;
 

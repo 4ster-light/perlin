@@ -1,4 +1,8 @@
-package dev.aster;
+package dev.aster.app;
+
+import dev.aster.noise.PerlinNoise;
+import dev.aster.render.Renderer3D;
+import dev.aster.terrain.Terrain;
 
 import java.awt.BorderLayout;
 import java.awt.Color;

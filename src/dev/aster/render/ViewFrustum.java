@@ -1,4 +1,6 @@
-package dev.aster;
+package dev.aster.render;
+
+import dev.aster.camera.Camera;
 
 /**
  * View frustum for culling triangles outside the visible area.

@@ -1,4 +1,4 @@
-package dev.aster;
+package dev.aster.camera;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -10,8 +10,8 @@ public final class Camera {
 
     private static final double MIN_PITCH = -89.0;
     private static final double MAX_PITCH = 89.0;
-    private static final double MOVEMENT_SPEED = 1.2;      // Increased for responsive movement
-    private static final double VERTICAL_SPEED = 0.8;      // Increased for responsive vertical movement
+    private static final double MOVEMENT_SPEED = 0.8;   // Units per frame
+    private static final double VERTICAL_SPEED = 0.5;   // Units per frame (up/down)
     private static final double MOUSE_SENSITIVITY = 0.15;  // Increased for better mouse look
 
     /** Directional input keys tracked by the camera. */
@@ -23,27 +23,47 @@ public final class Camera {
     public double yaw = 0.0;
     public double pitch = 0.0;
 
+    public Camera() {}
+
+    public Camera(double x, double y, double z, double yaw, double pitch) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+        this.yaw = yaw;
+        this.pitch = pitch;
+    }
+
     private final Map<InputKey, Boolean> inputState = new EnumMap<>(InputKey.class);
 
-    /** Update camera position based on input state. */
+    /**
+     * Update camera position based on input state.
+     *
+     * <p>Movement follows the forward vector (sin yaw, cos yaw) and the right
+     * vector (cos yaw, -sin yaw), so WASD always moves relative to where the
+     * camera is looking (yaw only, pitch is ignored for movement).
+     */
     public void update() {
         double radYaw = Math.toRadians(yaw);
+        double forwardX = Math.sin(radYaw);
+        double forwardY = Math.cos(radYaw);
+        double rightX = Math.cos(radYaw);
+        double rightY = -Math.sin(radYaw);
 
         if (inputState.getOrDefault(InputKey.FORWARD, false)) {
-            x += Math.cos(radYaw) * MOVEMENT_SPEED;
-            y += Math.sin(radYaw) * MOVEMENT_SPEED;
+            x += forwardX * MOVEMENT_SPEED;
+            y += forwardY * MOVEMENT_SPEED;
         }
         if (inputState.getOrDefault(InputKey.BACKWARD, false)) {
-            x -= Math.cos(radYaw) * MOVEMENT_SPEED;
-            y -= Math.sin(radYaw) * MOVEMENT_SPEED;
+            x -= forwardX * MOVEMENT_SPEED;
+            y -= forwardY * MOVEMENT_SPEED;
         }
         if (inputState.getOrDefault(InputKey.LEFT, false)) {
-            x -= Math.cos(radYaw - Math.PI / 2) * MOVEMENT_SPEED;
-            y -= Math.sin(radYaw - Math.PI / 2) * MOVEMENT_SPEED;
+            x -= rightX * MOVEMENT_SPEED;
+            y -= rightY * MOVEMENT_SPEED;
         }
         if (inputState.getOrDefault(InputKey.RIGHT, false)) {
-            x += Math.cos(radYaw - Math.PI / 2) * MOVEMENT_SPEED;
-            y += Math.sin(radYaw - Math.PI / 2) * MOVEMENT_SPEED;
+            x += rightX * MOVEMENT_SPEED;
+            y += rightY * MOVEMENT_SPEED;
         }
         if (inputState.getOrDefault(InputKey.UP, false)) {
             z += VERTICAL_SPEED;

@@ -1,4 +1,6 @@
-package dev.aster;
+package dev.aster.render;
+
+import dev.aster.terrain.Terrain;
 
 /**
  * Level of Detail system for rendering distant terrain at reduced detail.

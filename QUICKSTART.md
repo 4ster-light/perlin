@@ -6,7 +6,7 @@ No build tool is needed. The project uses Java's multi-file source launch
 (JEP 458), so one command compiles and runs everything:
 
 ```bash
-java src/main/java/dev/aster/Main.java
+java src/dev/aster/app/Main.java
 ```
 
 Requires Java 22+ (Java 25 recommended). There is no separate build step,
@@ -93,7 +93,7 @@ The colors represent different terrain types based on elevation:
 
 ## Customizing the Terrain
 
-Edit the constants in `src/main/java/dev/aster/Main.java`:
+Edit the constants in `src/dev/aster/app/Main.java`:
 
 ```java
 private static final int TERRAIN_WIDTH = 200;            // Grid width
@@ -125,7 +125,7 @@ private static final double TERRAIN_HEIGHT_MULTIPLIER = 50.0; // Vertical scale
 
 ## Camera Settings
 
-Edit `src/main/java/dev/aster/Camera.java` to adjust player movement:
+Edit `src/dev/aster/camera/Camera.java` to adjust player movement:
 
 ```java
 private static final double MOVEMENT_SPEED = 1.2;  // Units per frame
@@ -133,7 +133,7 @@ private static final double VERTICAL_SPEED = 0.8;  // Up/down speed
 private static final double MOUSE_SENSITIVITY = 0.15; // Degrees per pixel
 ```
 
-Edit `src/main/java/dev/aster/Renderer3D.java` for rendering performance:
+Edit `src/dev/aster/render/Renderer3D.java` for rendering performance:
 
 ```java
 private static final double FOV = 70.0;            // Field of view in degrees
@@ -162,7 +162,7 @@ There is nothing to rebuild - just run the app again and your source changes
 are picked up automatically:
 
 ```bash
-java src/main/java/dev/aster/Main.java
+java src/dev/aster/app/Main.java
 ```
 
 ## Tips for Exploration
@@ -210,7 +210,7 @@ java src/main/java/dev/aster/Main.java
 
 ```bash
 # Try with explicit Java options
-java -Xmx1024M src/main/java/dev/aster/Main.java
+java -Xmx1024M src/dev/aster/app/Main.java
 ```
 
 ### Compilation fails
@@ -231,7 +231,7 @@ Once you're comfortable with the controls:
 1. Experiment with different scale and octave values
 2. Generate several terrains and find your favorite
 3. Explore the codebase - it's well-commented for learning
-4. Consider modifying the terrain colors in `Terrain.java`
+4. Consider modifying the terrain colors in `src/dev/aster/terrain/Terrain.java`
 5. Try adjusting performance parameters for your system
 
 Enjoy exploring procedurally generated landscapes!

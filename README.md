@@ -62,17 +62,27 @@ real-time 3D visualization.
 ## Project Structure
 
 ```plaintext
-src/main/java/dev/aster/
-├── Main.java            - Application entry point and GUI setup
-├── PerlinNoise.java     - Perlin noise algorithm implementation
-├── Terrain.java         - Terrain generation and height mapping
-├── Camera.java          - First-person camera system with WASD + mouse look
-├── CollisionDetector.java - Terrain collision detection and camera constraints
-├── ViewFrustum.java     - Camera frustum for rendering optimization
-├── LevelOfDetail.java   - Adaptive LOD system for performance tuning
-├── HeadsUpDisplay.java  - HUD rendering with stats and mini-map
-└── Renderer3D.java      - 3D rendering engine with first-person perspective
+src/dev/aster/
+├── app/
+│   └── Main.java              - Application entry point and GUI setup
+├── noise/
+│   └── PerlinNoise.java       - Perlin noise algorithm implementation
+├── terrain/
+│   └── Terrain.java           - Terrain generation and height mapping
+├── camera/
+│   ├── Camera.java            - First-person camera system with WASD + mouse look
+│   └── CollisionDetector.java - Terrain collision detection and camera constraints
+├── render/
+│   ├── Renderer3D.java        - 3D rendering engine with first-person perspective
+│   ├── ViewFrustum.java       - Camera frustum for rendering optimization
+│   └── LevelOfDetail.java     - Adaptive LOD system for performance tuning
+└── ui/
+    └── HeadsUpDisplay.java    - HUD rendering with stats and mini-map
 ```
+
+Each concern lives in its own package (`app`, `noise`, `terrain`, `camera`,
+`render`, `ui`) - the JEP 458 source launcher resolves them automatically from
+the launched file's path, so no build tooling is needed.
 
 > [!NOTE]
 > See [QUICKSTART.md](QUICKSTART.md) for step-by-step instructions on running
@@ -84,7 +94,7 @@ No build tool is required. The project uses Java's multi-file source launch
 (JEP 458), so a single command compiles and runs it:
 
 ```bash
-java src/main/java/dev/aster/Main.java
+java src/dev/aster/app/Main.java
 ```
 
 That's it - there is no Gradle/Maven step, since the app only uses the JDK's
@@ -153,7 +163,7 @@ The implementation uses:
 
 ## Customization
 
-You can modify terrain parameters in `Main.java`:
+You can modify terrain parameters in `src/dev/aster/app/Main.java`:
 
 ```java
 new Terrain(

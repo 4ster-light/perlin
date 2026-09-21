@@ -1,4 +1,6 @@
-package dev.aster;
+package dev.aster.ui;
+
+import dev.aster.terrain.Terrain;
 
 import java.awt.BasicStroke;
 import java.awt.Color;

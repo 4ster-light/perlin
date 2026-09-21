@@ -1,4 +1,6 @@
-package dev.aster;
+package dev.aster.terrain;
+
+import dev.aster.noise.PerlinNoise;
 
 import java.awt.Color;
 

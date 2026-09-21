@@ -1,4 +1,4 @@
-package dev.aster;
+package dev.aster.noise;
 
 import java.util.Random;
 

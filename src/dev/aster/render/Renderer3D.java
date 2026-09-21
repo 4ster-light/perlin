@@ -1,5 +1,9 @@
-package dev.aster;
+package dev.aster.render;
 
+import dev.aster.camera.Camera;
+import dev.aster.camera.CollisionDetector;
+import dev.aster.terrain.Terrain;
+import dev.aster.ui.HeadsUpDisplay;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Cursor;
@@ -24,24 +28,13 @@ import javax.swing.JPanel;
 
 /**
  * Software-rendered first-person terrain view with mouse look and WASD movement.
+ *
+ * <p>Movement and collision are delegated to {@link Camera} and
+ * {@link CollisionDetector}; visibility culling to {@link ViewFrustum}; and
+ * distance-based mesh simplification to {@link LevelOfDetail}. This class only
+ * owns projection and rasterization.
  */
 public final class Renderer3D extends JPanel implements KeyListener {
-
-    // Camera position in world space
-    private double camX;
-    private double camY;
-    private double camZ;
-
-    // Camera angles (in degrees)
-    private double yaw;    // Left-right rotation (0 = looking along +Y axis)
-    private double pitch;  // Up-down rotation (0 = horizontal, negative = looking down)
-
-    // Movement state
-    private final Set<Integer> keysPressed = new HashSet<>();
-
-    // Mouse control
-    private Robot robot;
-    private boolean mouseCaptured = false;
 
     // Rendering
     private long lastFrameTime = System.currentTimeMillis();
@@ -49,12 +42,19 @@ public final class Renderer3D extends JPanel implements KeyListener {
     private int currentFPS = 0;
 
     private final Terrain terrain;
+    private final Camera camera;
+    private final CollisionDetector collision;
+    private final LevelOfDetail lod;
     private final HeadsUpDisplay hud = new HeadsUpDisplay();
 
-    private static final double MOVE_SPEED = 0.8;
-    private static final double VERTICAL_SPEED = 0.5;
+    // Mouse control
+    private Robot robot;
+    private boolean mouseCaptured = false;
+
+    // Movement state (raw key codes, mapped onto Camera.InputKey in update())
+    private final Set<Integer> keysPressed = new HashSet<>();
+
     private static final double MOUSE_SENSITIVITY = 0.15;
-    private static final double PLAYER_HEIGHT = 3.0; // Height above terrain
     private static final double FOV = 70.0;
     private static final int RENDER_DISTANCE = 120;
 
@@ -71,10 +71,12 @@ public final class Renderer3D extends JPanel implements KeyListener {
 
     public Renderer3D(Terrain terrain) {
         this.terrain = terrain;
+        this.camera = new Camera(terrain.width() / 2.0, terrain.height() / 2.0, 0.0, 0.0, 0.0);
+        this.collision = new CollisionDetector(terrain);
+        this.lod = new LevelOfDetail(terrain);
 
-        camX = terrain.width() / 2.0;
-        camY = terrain.height() / 2.0;
-        camZ = getTerrainHeight(camX, camY) + PLAYER_HEIGHT;
+        // Start hovering above the terrain surface
+        collision.adjustCameraPosition(camera);
 
         setPreferredSize(new Dimension(1200, 800));
         setBackground(new Color(135, 206, 235));
@@ -112,15 +114,8 @@ public final class Renderer3D extends JPanel implements KeyListener {
                     int dy = e.getY() - centerY;
 
                     if (dx != 0 || dy != 0) {
-                        // Update camera angles
-                        yaw += dx * MOUSE_SENSITIVITY;
-                        pitch += dy * MOUSE_SENSITIVITY; // Inverted: mouse up = look up
-
-                        // Clamp pitch to prevent flipping
-                        pitch = Math.clamp(pitch, -89.0, 89.0);
-
-                        // Normalize yaw
-                        yaw = ((yaw % 360.0) + 360.0) % 360.0;
+                        // Inverted deltaY: mouse up = look up (original demo feel)
+                        camera.rotate(dx * MOUSE_SENSITIVITY, -dy * MOUSE_SENSITIVITY);
 
                         // Reset mouse to center
                         Point loc = getLocationOnScreen();
@@ -166,46 +161,20 @@ public final class Renderer3D extends JPanel implements KeyListener {
     }
 
     private void update() {
-        // Calculate forward and right vectors based on yaw only (for movement)
-        double yawRad = Math.toRadians(yaw);
-        double forwardX = Math.sin(yawRad);
-        double forwardY = Math.cos(yawRad);
-        double rightX = Math.cos(yawRad);
-        double rightY = -Math.sin(yawRad);
+        // Map raw key codes onto directional camera input
+        camera.setInputKey(Camera.InputKey.FORWARD, keysPressed.contains(KeyEvent.VK_W));
+        camera.setInputKey(Camera.InputKey.BACKWARD, keysPressed.contains(KeyEvent.VK_S));
+        camera.setInputKey(Camera.InputKey.LEFT, keysPressed.contains(KeyEvent.VK_A));
+        camera.setInputKey(Camera.InputKey.RIGHT, keysPressed.contains(KeyEvent.VK_D));
+        camera.setInputKey(Camera.InputKey.UP,
+                keysPressed.contains(KeyEvent.VK_Q) || keysPressed.contains(KeyEvent.VK_SPACE));
+        camera.setInputKey(Camera.InputKey.DOWN,
+                keysPressed.contains(KeyEvent.VK_E) || keysPressed.contains(KeyEvent.VK_SHIFT));
 
-        // Handle movement
-        if (keysPressed.contains(KeyEvent.VK_W)) {
-            camX += forwardX * MOVE_SPEED;
-            camY += forwardY * MOVE_SPEED;
-        }
-        if (keysPressed.contains(KeyEvent.VK_S)) {
-            camX -= forwardX * MOVE_SPEED;
-            camY -= forwardY * MOVE_SPEED;
-        }
-        if (keysPressed.contains(KeyEvent.VK_A)) {
-            camX -= rightX * MOVE_SPEED;
-            camY -= rightY * MOVE_SPEED;
-        }
-        if (keysPressed.contains(KeyEvent.VK_D)) {
-            camX += rightX * MOVE_SPEED;
-            camY += rightY * MOVE_SPEED;
-        }
-        if (keysPressed.contains(KeyEvent.VK_Q) || keysPressed.contains(KeyEvent.VK_SPACE)) {
-            camZ += VERTICAL_SPEED;
-        }
-        if (keysPressed.contains(KeyEvent.VK_E) || keysPressed.contains(KeyEvent.VK_SHIFT)) {
-            camZ -= VERTICAL_SPEED;
-        }
-
-        // Clamp position to terrain bounds
-        camX = Math.clamp(camX, 5.0, terrain.width() - 5.0);
-        camY = Math.clamp(camY, 5.0, terrain.height() - 5.0);
-
-        // Keep above terrain
-        double terrainHeight = getTerrainHeight(camX, camY);
-        if (camZ < terrainHeight + PLAYER_HEIGHT) {
-            camZ = terrainHeight + PLAYER_HEIGHT;
-        }
+        // Move, then keep the camera inside the terrain and above its surface
+        camera.update();
+        collision.clampCameraPosition(camera);
+        collision.adjustCameraPosition(camera);
 
         // FPS counter
         frameCount++;
@@ -215,23 +184,6 @@ public final class Renderer3D extends JPanel implements KeyListener {
             frameCount = 0;
             lastFrameTime = now;
         }
-    }
-
-    private double getTerrainHeight(double x, double y) {
-        int xi = Math.clamp((int) x, 0, terrain.width() - 2);
-        int yi = Math.clamp((int) y, 0, terrain.height() - 2);
-        double xf = x - xi;
-        double yf = y - yi;
-
-        double h00 = terrain.getHeight(xi, yi);
-        double h10 = terrain.getHeight(xi + 1, yi);
-        double h01 = terrain.getHeight(xi, yi + 1);
-        double h11 = terrain.getHeight(xi + 1, yi + 1);
-
-        double h0 = h00 * (1 - xf) + h10 * xf;
-        double h1 = h01 * (1 - xf) + h11 * xf;
-
-        return h0 * (1 - yf) + h1 * yf;
     }
 
     @Override
@@ -254,11 +206,11 @@ public final class Renderer3D extends JPanel implements KeyListener {
 
         // Draw HUD
         var hudData = new HeadsUpDisplay.HUDData(
-                camX, camY, camZ,
+                camera.x, camera.y, camera.z,
                 currentFPS,
                 terrain.width(), terrain.height(),
                 terrain,
-                yaw);
+                camera.yaw);
         hud.draw(g2d, hudData, getWidth(), getHeight());
 
         // Draw crosshair
@@ -281,50 +233,56 @@ public final class Renderer3D extends JPanel implements KeyListener {
 
     private void renderTerrain(Graphics2D g) {
         // Precompute camera transform values
-        double yawRad = Math.toRadians(yaw);
-        double pitchRad = Math.toRadians(pitch);
+        double yawRad = Math.toRadians(camera.yaw);
+        double pitchRad = Math.toRadians(camera.pitch);
         double cosYaw = Math.cos(yawRad);
         double sinYaw = Math.sin(yawRad);
         double cosPitch = Math.cos(pitchRad);
         double sinPitch = Math.sin(pitchRad);
 
         double fovScale = 1.0 / Math.tan(Math.toRadians(FOV / 2.0));
+        ViewFrustum frustum = new ViewFrustum(
+                FOV, (double) getWidth() / getHeight(), 0.5, RENDER_DISTANCE * 2.0);
 
         List<ProjectedTriangle> triangles = new ArrayList<>();
 
-        int camGridX = (int) camX;
-        int camGridY = (int) camY;
+        int camGridX = (int) camera.x;
+        int camGridY = (int) camera.y;
 
         int xStart = Math.max(0, camGridX - RENDER_DISTANCE);
         int xEnd = Math.min(terrain.width() - 1, camGridX + RENDER_DISTANCE);
         int yStart = Math.max(0, camGridY - RENDER_DISTANCE);
         int yEnd = Math.min(terrain.height() - 1, camGridY + RENDER_DISTANCE);
 
-        for (int gx = xStart; gx < xEnd; gx++) {
-            for (int gy = yStart; gy < yEnd; gy++) {
+        for (int gx = xStart; gx < xEnd; ) {
+            int stepX = Math.max(1, lod.getLODSkipRate(distanceSquared(gx, camGridY)));
+            int gx2 = Math.min(gx + stepX, terrain.width() - 1);
 
-                // Get the 4 corners of this grid cell
+            for (int gy = yStart; gy < yEnd; ) {
+                int stepY = Math.max(1, lod.getLODSkipRate(distanceSquared(gx, gy)));
+                int gy2 = Math.min(gy + stepY, terrain.height() - 1);
+
                 double wx1 = gx;
                 double wy1 = gy;
                 double wz1 = terrain.getHeight(gx, gy);
 
-                double wx2 = gx + 1;
+                double wx2 = gx2;
                 double wy2 = gy;
-                double wz2 = terrain.getHeight(gx + 1, gy);
+                double wz2 = terrain.getHeight(gx2, gy);
 
                 double wx3 = gx;
-                double wy3 = gy + 1;
-                double wz3 = terrain.getHeight(gx, gy + 1);
+                double wy3 = gy2;
+                double wz3 = terrain.getHeight(gx, gy2);
 
-                double wx4 = gx + 1;
-                double wy4 = gy + 1;
-                double wz4 = terrain.getHeight(gx + 1, gy + 1);
+                double wx4 = gx2;
+                double wy4 = gy2;
+                double wz4 = terrain.getHeight(gx2, gy2);
 
                 // Project all 4 points
-                ProjectedPoint p1 = projectPoint(wx1, wy1, wz1, cosYaw, sinYaw, cosPitch, sinPitch, fovScale);
-                ProjectedPoint p2 = projectPoint(wx2, wy2, wz2, cosYaw, sinYaw, cosPitch, sinPitch, fovScale);
-                ProjectedPoint p3 = projectPoint(wx3, wy3, wz3, cosYaw, sinYaw, cosPitch, sinPitch, fovScale);
-                ProjectedPoint p4 = projectPoint(wx4, wy4, wz4, cosYaw, sinYaw, cosPitch, sinPitch, fovScale);
+                ProjectedPoint p1 = projectPoint(wx1, wy1, wz1, cosYaw, sinYaw, cosPitch, sinPitch, fovScale, frustum);
+                ProjectedPoint p2 = projectPoint(wx2, wy2, wz2, cosYaw, sinYaw, cosPitch, sinPitch, fovScale, frustum);
+                ProjectedPoint p3 = projectPoint(wx3, wy3, wz3, cosYaw, sinYaw, cosPitch, sinPitch, fovScale, frustum);
+                ProjectedPoint p4 = projectPoint(wx4, wy4, wz4, cosYaw, sinYaw, cosPitch, sinPitch, fovScale, frustum);
 
                 // Triangle 1: p1, p2, p3
                 if (p1 != null && p2 != null && p3 != null) {
@@ -349,7 +307,9 @@ public final class Renderer3D extends JPanel implements KeyListener {
                             depth,
                             terrain.getColorForHeight(avgHeight)));
                 }
+                gy += stepY;
             }
+            gx += stepX;
         }
 
         // Sort by depth (far to near - painter's algorithm)
@@ -371,21 +331,28 @@ public final class Renderer3D extends JPanel implements KeyListener {
         }
     }
 
+    /** Squared distance from a grid cell to the camera position. */
+    private double distanceSquared(int gx, int gy) {
+        double dx = gx - camera.x;
+        double dy = gy - camera.y;
+        return dx * dx + dy * dy;
+    }
+
     /**
      * Projects a world point to screen coordinates using first-person camera transform.
      *
-     * @return screen coordinates plus depth, or {@code null} if behind camera or culled
+     * @return screen coordinates plus depth, or {@code null} if outside the frustum
      */
     private ProjectedPoint projectPoint(
             double wx, double wy, double wz,
             double cosYaw, double sinYaw,
             double cosPitch, double sinPitch,
-            double fovScale) {
+            double fovScale, ViewFrustum frustum) {
 
         // Translate to camera-relative coordinates
-        double dx = wx - camX;
-        double dy = wy - camY;
-        double dz = wz - camZ;
+        double dx = wx - camera.x;
+        double dy = wy - camera.y;
+        double dz = wz - camera.z;
 
         // Rotate around Z axis (yaw - left/right)
         // This rotates the world so camera looks along +Y after rotation
@@ -397,8 +364,8 @@ public final class Renderer3D extends JPanel implements KeyListener {
         double depth = ry * cosPitch - dz * sinPitch;
         double finalZ = ry * sinPitch + dz * cosPitch;
 
-        // Behind camera
-        if (depth < 0.5) {
+        // Frustum culling (near/far planes)
+        if (!frustum.isPointInFrustum(rx, finalZ, depth)) {
             return null;
         }
 
@@ -406,7 +373,7 @@ public final class Renderer3D extends JPanel implements KeyListener {
         int screenX = (int) (getWidth() / 2.0 + (rx / depth) * fovScale * getWidth() / 2.0);
         int screenY = (int) (getHeight() / 2.0 - (finalZ / depth) * fovScale * getHeight() / 2.0);
 
-        // Frustum culling
+        // Screen-bounds culling
         if (screenX < -500 || screenX > getWidth() + 500 || screenY < -500 || screenY > getHeight() + 500) {
             return null;
         }
