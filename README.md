@@ -34,7 +34,7 @@ real-time 3D visualization.
 ### Advanced Rendering
 
 - **3D Visualization**: Real-time 3D rendering with perspective projection
-- **Level of Detail (LOD)**: Adaptive detail levels based on camera distance for
+- **Level of Detail (LOD)**: Adaptive per-triangle detail based on camera distance for
   performance optimization
 - **Frustum Culling**: Intelligent triangle culling to render only visible
   geometry
@@ -143,10 +143,11 @@ The implementation uses:
 
 ### Performance Optimization
 
-- **Level of Detail (LOD)**: Reduces vertex density for distant terrain
-  - Distance 0-30 units: Full detail (skip rate 1)
-  - Distance 30-60 units: Half detail (skip rate 2)
-  - Distance 60+ units: Quarter detail (skip rate 3)
+- **Level of Detail (LOD)**: Lowers per-triangle detail for distant terrain
+  (the mesh itself stays uniform 1x1 cells to avoid T-junction cracks)
+  - Distance 0-30 units: full detail incl. wireframe (skip rate 1)
+  - Distance 30-60 units: fill only (skip rate 2)
+  - Distance 60+ units: fill only (skip rate 3)
 - **Render Distance**: Only renders terrain within ~100 units of player
 - **Lazy Evaluation**: Triangles generated only as needed
 - **Efficient Sorting**: Z-depth sorting for correct occlusion handling

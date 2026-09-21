@@ -30,9 +30,12 @@ import javax.swing.JPanel;
  * Software-rendered first-person terrain view with mouse look and WASD movement.
  *
  * <p>Movement and collision are delegated to {@link Camera} and
- * {@link CollisionDetector}; visibility culling to {@link ViewFrustum}; and
- * distance-based mesh simplification to {@link LevelOfDetail}. This class only
- * owns projection and rasterization.
+ * {@link CollisionDetector}; visibility culling to {@link ViewFrustum}. The
+ * mesh itself is always built from uniform 1x1 grid cells: merging cells into
+ * coarser triangles with distance would crack the heightfield (T-junctions)
+ * without edge stitching, which is not worth the complexity here. Instead,
+ * {@link LevelOfDetail} lowers per-triangle detail (wireframe strokes) with
+ * distance. This class only owns projection and rasterization.
  */
 public final class Renderer3D extends JPanel implements KeyListener {
 
@@ -64,7 +67,8 @@ public final class Renderer3D extends JPanel implements KeyListener {
             int x2, int y2,
             int x3, int y3,
             double depth,
-            Color color) {}
+            Color color,
+            boolean wireframe) {}
 
     /** Screen coordinates plus depth, or {@code null} when the point is culled. */
     private record ProjectedPoint(int x, int y, double depth) {}
@@ -114,7 +118,9 @@ public final class Renderer3D extends JPanel implements KeyListener {
                     int dy = e.getY() - centerY;
 
                     if (dx != 0 || dy != 0) {
-                        // Inverted deltaY: mouse up = look up (original demo feel)
+                        // Negative deltaY keeps the demo's inverted pitch feel
+                        // (mouse up = look up) while Camera.rotate handles
+                        // clamping and yaw normalization
                         camera.rotate(dx * MOUSE_SENSITIVITY, -dy * MOUSE_SENSITIVITY);
 
                         // Reset mouse to center
@@ -254,29 +260,28 @@ public final class Renderer3D extends JPanel implements KeyListener {
         int yStart = Math.max(0, camGridY - RENDER_DISTANCE);
         int yEnd = Math.min(terrain.height() - 1, camGridY + RENDER_DISTANCE);
 
-        for (int gx = xStart; gx < xEnd; ) {
-            int stepX = Math.max(1, lod.getLODSkipRate(distanceSquared(gx, camGridY)));
-            int gx2 = Math.min(gx + stepX, terrain.width() - 1);
+        for (int gx = xStart; gx < xEnd; gx++) {
+            for (int gy = yStart; gy < yEnd; gy++) {
 
-            for (int gy = yStart; gy < yEnd; ) {
-                int stepY = Math.max(1, lod.getLODSkipRate(distanceSquared(gx, gy)));
-                int gy2 = Math.min(gy + stepY, terrain.height() - 1);
-
+                // Get the 4 corners of this grid cell
                 double wx1 = gx;
                 double wy1 = gy;
                 double wz1 = terrain.getHeight(gx, gy);
 
-                double wx2 = gx2;
+                double wx2 = gx + 1;
                 double wy2 = gy;
-                double wz2 = terrain.getHeight(gx2, gy);
+                double wz2 = terrain.getHeight(gx + 1, gy);
 
                 double wx3 = gx;
-                double wy3 = gy2;
-                double wz3 = terrain.getHeight(gx, gy2);
+                double wy3 = gy + 1;
+                double wz3 = terrain.getHeight(gx, gy + 1);
 
-                double wx4 = gx2;
-                double wy4 = gy2;
-                double wz4 = terrain.getHeight(gx2, gy2);
+                double wx4 = gx + 1;
+                double wy4 = gy + 1;
+                double wz4 = terrain.getHeight(gx + 1, gy + 1);
+
+                // Wireframe strokes only on near, full-detail triangles
+                boolean wireframe = lod.getLODSkipRate(distanceSquared(gx, gy)) == 1;
 
                 // Project all 4 points
                 ProjectedPoint p1 = projectPoint(wx1, wy1, wz1, cosYaw, sinYaw, cosPitch, sinPitch, fovScale, frustum);
@@ -293,7 +298,8 @@ public final class Renderer3D extends JPanel implements KeyListener {
                             p2.x(), p2.y(),
                             p3.x(), p3.y(),
                             depth,
-                            terrain.getColorForHeight(avgHeight)));
+                            terrain.getColorForHeight(avgHeight),
+                            wireframe));
                 }
 
                 // Triangle 2: p2, p4, p3
@@ -305,11 +311,10 @@ public final class Renderer3D extends JPanel implements KeyListener {
                             p4.x(), p4.y(),
                             p3.x(), p3.y(),
                             depth,
-                            terrain.getColorForHeight(avgHeight)));
+                            terrain.getColorForHeight(avgHeight),
+                            wireframe));
                 }
-                gy += stepY;
             }
-            gx += stepX;
         }
 
         // Sort by depth (far to near - painter's algorithm)
@@ -322,12 +327,14 @@ public final class Renderer3D extends JPanel implements KeyListener {
                     new int[]{tri.x1(), tri.x2(), tri.x3()},
                     new int[]{tri.y1(), tri.y2(), tri.y3()},
                     3);
-            // Wireframe for definition
-            g.setColor(tri.color().darker());
-            g.drawPolygon(
-                    new int[]{tri.x1(), tri.x2(), tri.x3()},
-                    new int[]{tri.y1(), tri.y2(), tri.y3()},
-                    3);
+            // Wireframe for definition (near triangles only, see LevelOfDetail)
+            if (tri.wireframe()) {
+                g.setColor(tri.color().darker());
+                g.drawPolygon(
+                        new int[]{tri.x1(), tri.x2(), tri.x3()},
+                        new int[]{tri.y1(), tri.y2(), tri.y3()},
+                        3);
+            }
         }
     }
 

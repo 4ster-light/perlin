@@ -4,6 +4,11 @@ import dev.aster.terrain.Terrain;
 
 /**
  * Level of Detail system for rendering distant terrain at reduced detail.
+ *
+ * <p>Detail levels lower per-triangle rendering cost (e.g. wireframe strokes)
+ * with distance. The mesh itself is deliberately kept uniform: merging cells
+ * into coarser triangles cracks a heightfield (T-junctions) unless boundary
+ * edges are stitched, which is not worth the complexity in this demo.
  */
 public final class LevelOfDetail {
 

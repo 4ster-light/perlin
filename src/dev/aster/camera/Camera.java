@@ -78,9 +78,14 @@ public final class Camera {
         inputState.put(key, pressed);
     }
 
-    /** Update camera rotation based on mouse movement. */
+    /**
+     * Update camera rotation based on mouse movement.
+     *
+     * <p>Yaw follows the demo's convention: yaw 0 looks along +Y and moving the
+     * mouse right increases yaw (turning toward +X).
+     */
     public void rotate(double deltaX, double deltaY) {
-        yaw -= deltaX * MOUSE_SENSITIVITY;
+        yaw += deltaX * MOUSE_SENSITIVITY;
         pitch -= deltaY * MOUSE_SENSITIVITY;
         pitch = Math.clamp(pitch, MIN_PITCH, MAX_PITCH);
 
