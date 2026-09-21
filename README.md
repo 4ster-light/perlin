@@ -154,8 +154,8 @@ The implementation uses:
 - **Octaves**: 5 (detail levels, 1-8 recommended)
 - **Height multiplier**: 50.0 (vertical exaggeration for dramatic terrain)
 - **Render distance**: 100 grid units
-- **Movement speed**: 0.3 units per frame
-- **Mouse sensitivity**: 0.1 degrees per pixel
+- **Movement speed**: 1.2 units per frame
+- **Mouse sensitivity**: 0.15 degrees per pixel
 
 ## Customization
 
@@ -175,7 +175,7 @@ new Terrain(
 Camera settings can be adjusted in `Camera.java`:
 
 ```java
-private static final double MOVEMENT_SPEED = 0.3;   // Units per frame
+private static final double MOVEMENT_SPEED = 1.2;   // Units per frame
 private static final double VERTICAL_SPEED = 0.2;   // Units per frame (up/down)
 private static final double MOUSE_SENSITIVITY = 0.1; // Degrees per pixel
 ```

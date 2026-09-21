@@ -35,7 +35,8 @@ import javax.swing.JPanel;
  */
 public final class Renderer3D extends JPanel implements KeyListener {
 
-    // Rendering
+    // Rendering: real painted frames (counted in paintComponent, because Swing
+    // coalesces repaint() calls and the game-loop tick rate overstates FPS)
     private long lastFrameTime = System.currentTimeMillis();
     private int frameCount = 0;
     private int currentFPS = 0;
@@ -52,7 +53,6 @@ public final class Renderer3D extends JPanel implements KeyListener {
     // Movement state (raw key codes, mapped onto Camera.InputKey in update())
     private final Set<Integer> keysPressed = new HashSet<>();
 
-    private static final double MOUSE_SENSITIVITY = 0.15;
     private static final double FOV = 70.0;
     private static final int RENDER_DISTANCE = 120;
 
@@ -111,10 +111,10 @@ public final class Renderer3D extends JPanel implements KeyListener {
                     int dy = e.getY() - centerY;
 
                     if (dx != 0 || dy != 0) {
+                        // Raw pixel deltas; Camera.rotate applies sensitivity.
                         // Negative deltaY keeps the demo's inverted pitch feel
-                        // (mouse up = look up) while Camera.rotate handles
-                        // clamping and yaw normalization
-                        camera.rotate(dx * MOUSE_SENSITIVITY, -dy * MOUSE_SENSITIVITY);
+                        // (mouse up = look up).
+                        camera.rotate(dx, -dy);
 
                         // Reset mouse to center
                         Point loc = getLocationOnScreen();
@@ -174,8 +174,13 @@ public final class Renderer3D extends JPanel implements KeyListener {
         camera.update();
         collision.clampCameraPosition(camera);
         collision.adjustCameraPosition(camera);
+    }
 
-        // FPS counter
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+
+        // FPS measurement: count frames actually painted on screen
         frameCount++;
         long now = System.currentTimeMillis();
         if (now - lastFrameTime >= 1000) {
@@ -183,11 +188,7 @@ public final class Renderer3D extends JPanel implements KeyListener {
             frameCount = 0;
             lastFrameTime = now;
         }
-    }
 
-    @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
