@@ -2,27 +2,15 @@
 
 ## Running the Application
 
-### Option 1: Use Gradle (Recommended)
+No build tool is needed. The project uses Java's multi-file source launch
+(JEP 458), so one command compiles and runs everything:
 
 ```bash
-./gradlew run
+java src/main/java/dev/aster/Main.java
 ```
 
-This will automatically build (if needed) and run the application.
-
-### Option 2: Build then run the JAR
-
-```bash
-./gradlew build
-java -jar build/libs/perlin-1.0.0.jar
-```
-
-### Option 3: From IntelliJ IDEA
-
-1. Open the project in IntelliJ IDEA
-2. Open `src/Main.kt`
-3. Click the green play button next to the `main()` function
-4. Or press Shift+F10 (Windows/Linux) or Control+R (Mac)
+Requires Java 22+ (Java 25 recommended). There is no separate build step,
+no Gradle, and no Maven - the demo only uses the JDK's built-in Swing/AWT.
 
 ## Using the Application
 
@@ -105,17 +93,14 @@ The colors represent different terrain types based on elevation:
 
 ## Customizing the Terrain
 
-Edit `src/Main.kt` and modify these parameters in the `main()` function:
+Edit the constants in `src/main/java/dev/aster/Main.java`:
 
-```kotlin
-Terrain(
-    width = 200,              // Grid width (200x200 is default)
-    height = 200,             // Grid height
-    perlinNoise,
-    scale = 0.05,             // 0.01-0.1: Smaller = larger features
-    octaves = 5,              // 1-8: Bigger = more detail
-    heightMultiplier = 50.0   // Vertical scale
-)
+```java
+private static final int TERRAIN_WIDTH = 200;            // Grid width
+private static final int TERRAIN_HEIGHT = 200;           // Grid height
+private static final double TERRAIN_SCALE = 0.05;        // 0.01-0.1: smaller = larger features
+private static final int TERRAIN_OCTAVES = 5;            // 1-8: bigger = more detail
+private static final double TERRAIN_HEIGHT_MULTIPLIER = 50.0; // Vertical scale
 ```
 
 ### Terrain Scale Guide
@@ -140,23 +125,19 @@ Terrain(
 
 ## Camera Settings
 
-Edit `src/Camera.kt` to adjust player movement:
+Edit `src/main/java/dev/aster/Camera.java` to adjust player movement:
 
-```kotlin
-companion object {
-    private const val MOVEMENT_SPEED = 0.3      // Units per frame
-    private const val VERTICAL_SPEED = 0.2      // Up/down speed
-    private const val MOUSE_SENSITIVITY = 0.1   // Degrees per pixel
-}
+```java
+private static final double MOVEMENT_SPEED = 1.2;  // Units per frame
+private static final double VERTICAL_SPEED = 0.8;  // Up/down speed
+private static final double MOUSE_SENSITIVITY = 0.15; // Degrees per pixel
 ```
 
-Edit `src/Renderer3D.kt` for rendering performance:
+Edit `src/main/java/dev/aster/Renderer3D.java` for rendering performance:
 
-```kotlin
-companion object {
-    private const val RENDER_DISTANCE = 100.0   // How far to render (grid units)
-    private const val FOV = 90.0                 // Field of view in degrees
-}
+```java
+private static final double FOV = 70.0;            // Field of view in degrees
+private static final int RENDER_DISTANCE = 120;    // How far to render (grid units)
 ```
 
 ## Performance Tuning
@@ -177,17 +158,11 @@ companion object {
 
 ## Rebuilding
 
-If you make changes to the source code, Gradle will detect them automatically on
-the next build:
+There is nothing to rebuild - just run the app again and your source changes
+are picked up automatically:
 
 ```bash
-./gradlew build
-```
-
-To force a clean rebuild:
-
-```bash
-./gradlew clean build
+java src/main/java/dev/aster/Main.java
 ```
 
 ## Tips for Exploration
@@ -235,15 +210,13 @@ To force a clean rebuild:
 
 ```bash
 # Try with explicit Java options
-java -Xmx1024M -jar build/libs/perlin-1.0.0.jar
+java -Xmx1024M src/main/java/dev/aster/Main.java
 ```
 
-### Build fails
+### Compilation fails
 
-```bash
-# Clean and rebuild
-./gradlew clean build
-```
+Make sure you're on Java 22 or newer (`java -version`); older JVMs don't
+support multi-file source launching.
 
 ### No terrain visible
 
@@ -258,7 +231,7 @@ Once you're comfortable with the controls:
 1. Experiment with different scale and octave values
 2. Generate several terrains and find your favorite
 3. Explore the codebase - it's well-commented for learning
-4. Consider modifying the terrain colors in `Terrain.kt`
+4. Consider modifying the terrain colors in `Terrain.java`
 5. Try adjusting performance parameters for your system
 
 Enjoy exploring procedurally generated landscapes!

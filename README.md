@@ -1,8 +1,8 @@
 # Perlin Noise Procedural Landscape Generator
 
 A 3D procedural terrain generator using Perlin noise algorithm, now featuring a
-**first-person immersive experience**, implemented in Kotlin with real-time 3D
-visualization.
+**first-person immersive experience**, implemented in Java (Swing/AWT) with
+real-time 3D visualization.
 
 ![Showcase Image](./Showcase.png)
 
@@ -62,49 +62,33 @@ visualization.
 ## Project Structure
 
 ```plaintext
-src/main/kotlin/
-├── Main.kt              - Application entry point and GUI setup
-├── PerlinNoise.kt       - Perlin noise algorithm implementation
-├── Terrain.kt           - Terrain generation and height mapping
-├── Camera.kt            - First-person camera system with WASD + mouse look
-├── CollisionDetector.kt - Terrain collision detection and camera constraints
-├── ViewFrustum.kt       - Camera frustum for rendering optimization
-├── LevelOfDetail.kt     - Adaptive LOD system for performance tuning
-├── HeadsUpDisplay.kt    - HUD rendering with stats and mini-map
-└── Renderer3D.kt        - 3D rendering engine with first-person perspective
+src/main/java/dev/aster/
+├── Main.java            - Application entry point and GUI setup
+├── PerlinNoise.java     - Perlin noise algorithm implementation
+├── Terrain.java         - Terrain generation and height mapping
+├── Camera.java          - First-person camera system with WASD + mouse look
+├── CollisionDetector.java - Terrain collision detection and camera constraints
+├── ViewFrustum.java     - Camera frustum for rendering optimization
+├── LevelOfDetail.java   - Adaptive LOD system for performance tuning
+├── HeadsUpDisplay.java  - HUD rendering with stats and mini-map
+└── Renderer3D.java      - 3D rendering engine with first-person perspective
 ```
 
 > [!NOTE]
 > See [QUICKSTART.md](QUICKSTART.md) for step-by-step instructions on running
 > and customizing the project
 
-## Building
+## Building & Running
 
-### Using Gradle (Recommended)
-
-```bash
-./gradlew build
-```
-
-The JAR will be created in `build/libs/perlin-1.0-SNAPSHOT.jar`
-
-## Running
-
-### From Gradle
+No build tool is required. The project uses Java's multi-file source launch
+(JEP 458), so a single command compiles and runs it:
 
 ```bash
-./gradlew run
+java src/main/java/dev/aster/Main.java
 ```
 
-### From JAR
-
-```bash
-java -jar build/libs/perlin-1.0-SNAPSHOT.jar
-```
-
-### From IntelliJ IDEA
-
-Open the project and run the `Main.kt` file.
+That's it - there is no Gradle/Maven step, since the app only uses the JDK's
+built-in Swing/AWT.
 
 ## Controls
 
@@ -169,36 +153,32 @@ The implementation uses:
 
 ## Customization
 
-You can modify terrain parameters in `Main.kt`:
+You can modify terrain parameters in `Main.java`:
 
-```kotlin
-Terrain(
-    width = 200,              // Grid width (default: 200)
-    height = 200,             // Grid height (default: 200)
-    perlinNoise,
-    scale = 0.05,             // Smaller = larger features
-    octaves = 5,              // Bigger = more detail
-    heightMultiplier = 50.0   // Vertical scale
-)
+```java
+new Terrain(
+    200,       // width: Grid width (default: 200)
+    200,       // height: Grid height (default: 200)
+    noise,     // perlinNoise
+    0.05,      // scale: Smaller = larger features
+    5,         // octaves: Bigger = more detail
+    50.0       // heightMultiplier: Vertical scale
+);
 ```
 
-Camera settings can be adjusted in `Camera.kt`:
+Camera settings can be adjusted in `Camera.java`:
 
-```kotlin
-companion object {
-    private const val MOVEMENT_SPEED = 0.3      // Units per frame
-    private const val VERTICAL_SPEED = 0.2      // Units per frame (up/down)
-    private const val MOUSE_SENSITIVITY = 0.1   // Degrees per pixel
-}
+```java
+private static final double MOVEMENT_SPEED = 0.3;   // Units per frame
+private static final double VERTICAL_SPEED = 0.2;   // Units per frame (up/down)
+private static final double MOUSE_SENSITIVITY = 0.1; // Degrees per pixel
 ```
 
-Rendering parameters in `Renderer3D.kt`:
+Rendering parameters in `Renderer3D.java`:
 
-```kotlin
-companion object {
-    private const val FOV = 90.0
-    private const val RENDER_DISTANCE = 100.0   // Grid units
-}
+```java
+private static final double FOV = 70.0;
+private static final int RENDER_DISTANCE = 120;   // Grid units
 ```
 
 ## Performance Considerations
@@ -213,9 +193,7 @@ companion object {
 
 ## Requirements
 
-- Java 8 or higher
-- Kotlin 2.2.21 or higher
-- Gradle 8.0+ (for building)
+- Java 22 or higher (for multi-file source-file launching; Java 25 recommended)
 
 ## System Requirements
 

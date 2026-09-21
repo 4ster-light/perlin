@@ -1,6 +1,4 @@
-.gradle
 build/
-!gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
 
@@ -16,8 +14,6 @@ out/
 !**/src/main/**/out/
 !**/src/test/**/out/
 
-### Kotlin ###
-.kotlin
 
 ### Eclipse ###
 .apt_generated
