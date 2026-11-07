@@ -8,10 +8,15 @@ import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
-import java.util.List;
+import java.awt.image.BufferedImage;
 
 /**
  * Heads-up display showing player stats and mini-map with modern styling.
+ *
+ * <p>The mini-map is a static function of the terrain, so it is rasterized once
+ * per terrain into an off-screen image and then blitted every frame. Fonts and
+ * font metrics are cached for the same reason: the HUD is repainted at the game
+ * loop rate and should not allocate or re-rasterize static artwork.
  */
 public final class HeadsUpDisplay {
 
@@ -24,6 +29,18 @@ public final class HeadsUpDisplay {
     private static final Color TEXT_BACKGROUND = new Color(0, 0, 0, 210);
     private static final Color MINI_MAP_BACKGROUND = new Color(20, 20, 30, 220);
     private static final Color ACCENT_COLOR = new Color(100, 150, 255);
+    private static final Color PLAYER_MARKER_COLOR = new Color(255, 215, 0, 255);
+    private static final Color DIRECTION_COLOR = new Color(100, 200, 255);
+    private static final Color MINI_MAP_GRID_COLOR = new Color(60, 60, 80, 100);
+    private static final Color COMPASS_BACKGROUND = new Color(0, 0, 0, 200);
+    private static final Color COMPASS_NORTH_COLOR = new Color(255, 100, 100);
+
+    private static final BasicStroke STROKE_2 = new BasicStroke(2f);
+    private static final BasicStroke STROKE_1_5 = new BasicStroke(1.5f);
+    private static final BasicStroke STROKE_0_5 = new BasicStroke(0.5f);
+
+    private static final String CONTROLS =
+            "WASD: Move | Mouse: Look | Q/E: Up/Down | Regen: Generate New Terrain";
 
     /** Snapshot of the state the HUD renders each frame. */
     public record HUDData(
@@ -36,9 +53,31 @@ public final class HeadsUpDisplay {
             Terrain terrain,
             double yaw) {}
 
+    private record Direction(String label, double angle, boolean bold) {}
+
+    private static final Direction[] DIRECTIONS = {
+            new Direction("N", 0.0, true),
+            new Direction("E", 90.0, false),
+            new Direction("S", 180.0, false),
+            new Direction("W", 270.0, false)
+    };
+
+    // Cached static artwork / typography
+    private Terrain cachedTerrain;
+    private BufferedImage cachedMiniMap;
+
+    private Font statsFont;
+    private Font statsBoldFont;
+    private Font controlsFont;
+    private Font compassFont;
+    private Font compassBoldFont;
+    private FontMetrics statsMetrics;
+    private FontMetrics controlsMetrics;
+
     /** Draw the complete HUD on the graphics context. */
     public void draw(Graphics2D g, HUDData hudData, int width, int height) {
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        ensureFonts(g);
 
         // Draw statistics panel (top-left)
         drawStatsPanel(g, hudData);
@@ -53,12 +92,24 @@ public final class HeadsUpDisplay {
         drawCompass(g, hudData, width);
     }
 
-    private void drawStatsPanel(Graphics2D g, HUDData hudData) {
-        Font font = g.getFont().deriveFont(FONT_SIZE);
-        Font boldFont = font.deriveFont(Font.BOLD);
-        FontMetrics metrics = g.getFontMetrics(font);
+    private void ensureFonts(Graphics2D g) {
+        if (statsFont != null) {
+            return;
+        }
+        Font base = g.getFont();
+        statsFont = base.deriveFont(FONT_SIZE);
+        statsBoldFont = base.deriveFont(Font.BOLD, FONT_SIZE);
+        controlsFont = base.deriveFont(FONT_SIZE - 2);
+        compassFont = base.deriveFont(9f);
+        compassBoldFont = compassFont.deriveFont(Font.BOLD);
+        statsMetrics = g.getFontMetrics(statsFont);
+        controlsMetrics = g.getFontMetrics(controlsFont);
+    }
 
-        List<String> stats = List.of(
+    private void drawStatsPanel(Graphics2D g, HUDData hudData) {
+        FontMetrics metrics = statsMetrics;
+
+        String[] stats = {
                 "═ POSITION ═",
                 "X: " + String.format("%.1f", hudData.cameraX()),
                 "Y: " + String.format("%.1f", hudData.cameraY()),
@@ -66,18 +117,23 @@ public final class HeadsUpDisplay {
                 "",
                 "═ PERFORMANCE ═",
                 "FPS: " + hudData.fps(),
-                "Dir: " + ((int) hudData.yaw() + 360) % 360 + "°");
+                "Dir: " + ((int) hudData.yaw() + 360) % 360 + "°"
+        };
 
         int lineHeight = metrics.getHeight() + 3;
-        int panelWidth = stats.stream().mapToInt(metrics::stringWidth).max().orElse(0) + 20;
-        int panelHeight = stats.size() * lineHeight + 15;
+        int panelWidth = 0;
+        for (String stat : stats) {
+            panelWidth = Math.max(panelWidth, metrics.stringWidth(stat));
+        }
+        panelWidth += 20;
+        int panelHeight = stats.length * lineHeight + 15;
 
         // Draw semi-transparent background with border
         g.setColor(TEXT_BACKGROUND);
         g.fillRect(HUD_PADDING, HUD_PADDING, panelWidth, panelHeight);
 
         g.setColor(ACCENT_COLOR);
-        g.setStroke(new BasicStroke(2f));
+        g.setStroke(STROKE_2);
         g.drawRect(HUD_PADDING, HUD_PADDING, panelWidth, panelHeight);
 
         // Draw corner decorations
@@ -87,28 +143,57 @@ public final class HeadsUpDisplay {
         g.drawLine(HUD_PADDING + panelWidth - 5, HUD_PADDING + 5, HUD_PADDING + panelWidth - 5, HUD_PADDING + 15);
 
         // Draw text
-        for (int index = 0; index < stats.size(); index++) {
-            String stat = stats.get(index);
+        for (int index = 0; index < stats.length; index++) {
+            String stat = stats[index];
             if (stat.startsWith("═")) {
-                g.setFont(boldFont);
+                g.setFont(statsBoldFont);
                 g.setColor(ACCENT_COLOR);
             } else {
-                g.setFont(font);
+                g.setFont(statsFont);
                 g.setColor(TEXT_COLOR);
             }
             g.drawString(stat, HUD_PADDING + 10, HUD_PADDING + 15 + index * lineHeight);
         }
     }
 
+    private void ensureMiniMap(Terrain terrain) {
+        if (terrain == cachedTerrain) {
+            return;
+        }
+
+        BufferedImage image = new BufferedImage(MINI_MAP_SIZE, MINI_MAP_SIZE, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = image.createGraphics();
+        g.setColor(MINI_MAP_BACKGROUND);
+        g.fillRect(0, 0, MINI_MAP_SIZE, MINI_MAP_SIZE);
+
+        double scale = (double) MINI_MAP_SIZE / Math.max(terrain.width(), terrain.height());
+        int pixelSize = Math.max(1, (int) scale);
+        int sampleRate = Math.max(1, terrain.width() / (MINI_MAP_SIZE / 3));
+
+        for (int ix = 0; ix < terrain.width(); ix += sampleRate) {
+            int screenX = (int) (ix * scale);
+            for (int iy = 0; iy < terrain.height(); iy += sampleRate) {
+                int color = terrain.colorIndexForHeight(terrain.heightAt(ix, iy));
+                g.setColor(Terrain.colorForIndex(color));
+                g.fillRect(screenX, (int) (iy * scale), pixelSize, pixelSize);
+            }
+        }
+
+        g.dispose();
+        cachedTerrain = terrain;
+        cachedMiniMap = image;
+    }
+
     private void drawMiniMap(Graphics2D g, HUDData hudData, int x) {
+        ensureMiniMap(hudData.terrain());
+
         double scale = (double) MINI_MAP_SIZE / Math.max(hudData.terrainWidth(), hudData.terrainHeight());
 
-        // Draw background with border
-        g.setColor(MINI_MAP_BACKGROUND);
-        g.fillRect(x, MINI_MAP_PADDING, MINI_MAP_SIZE, MINI_MAP_SIZE);
+        // Background + terrain raster, baked once per terrain
+        g.drawImage(cachedMiniMap, x, MINI_MAP_PADDING, null);
 
         g.setColor(ACCENT_COLOR);
-        g.setStroke(new BasicStroke(2f));
+        g.setStroke(STROKE_2);
         g.drawRect(x, MINI_MAP_PADDING, MINI_MAP_SIZE, MINI_MAP_SIZE);
 
         // Draw corner decorations
@@ -117,28 +202,13 @@ public final class HeadsUpDisplay {
         g.drawLine(x + MINI_MAP_SIZE - 15, MINI_MAP_PADDING + 5, x + MINI_MAP_SIZE - 5, MINI_MAP_PADDING + 5);
         g.drawLine(x + MINI_MAP_SIZE - 5, MINI_MAP_PADDING + 5, x + MINI_MAP_SIZE - 5, MINI_MAP_PADDING + 15);
 
-        // Draw terrain height map with adaptive sampling
-        int sampleRate = Math.max(1, hudData.terrainWidth() / (MINI_MAP_SIZE / 3));
-        for (int ix = 0; ix < hudData.terrainWidth(); ix += sampleRate) {
-            for (int iy = 0; iy < hudData.terrainHeight(); iy += sampleRate) {
-                double height = hudData.terrain().getHeight(ix, iy);
-                g.setColor(hudData.terrain().getColorForHeight(height));
-
-                int screenX = x + (int) (ix * scale);
-                int screenY = MINI_MAP_PADDING + (int) (iy * scale);
-                int pixelSize = Math.max(1, (int) scale);
-
-                g.fillRect(screenX, screenY, pixelSize, pixelSize);
-            }
-        }
-
         // Draw player position indicator
         int playerScreenX = x + (int) (hudData.cameraX() * scale);
         int playerScreenY = MINI_MAP_PADDING + (int) (hudData.cameraY() * scale);
 
         // Draw position crosshair
-        g.setColor(new Color(255, 215, 0, 255));
-        g.setStroke(new BasicStroke(2f));
+        g.setColor(PLAYER_MARKER_COLOR);
+        g.setStroke(STROKE_2);
         g.drawOval(playerScreenX - 5, playerScreenY - 5, 10, 10);
         g.drawLine(playerScreenX - 8, playerScreenY, playerScreenX + 8, playerScreenY);
         g.drawLine(playerScreenX, playerScreenY - 8, playerScreenX, playerScreenY + 8);
@@ -149,12 +219,12 @@ public final class HeadsUpDisplay {
         double dirLength = 20.0;
         int dirX = playerScreenX + (int) (Math.sin(radYaw) * dirLength);
         int dirY = playerScreenY + (int) (Math.cos(radYaw) * dirLength);
-        g.setColor(new Color(100, 200, 255));
+        g.setColor(DIRECTION_COLOR);
         g.drawLine(playerScreenX, playerScreenY, dirX, dirY);
 
         // Draw grid lines for reference
-        g.setColor(new Color(60, 60, 80, 100));
-        g.setStroke(new BasicStroke(0.5f));
+        g.setColor(MINI_MAP_GRID_COLOR);
+        g.setStroke(STROKE_0_5);
         int gridSpacing = Math.max(MINI_MAP_SIZE / 4, 10);
         for (int i = 0; i <= 4; i++) {
             g.drawLine(x + i * gridSpacing, MINI_MAP_PADDING, x + i * gridSpacing, MINI_MAP_PADDING + MINI_MAP_SIZE);
@@ -167,55 +237,42 @@ public final class HeadsUpDisplay {
         int centerY = 20;
         int radius = 15;
 
-        Font font = g.getFont().deriveFont(9f);
-        g.setFont(font);
+        g.setFont(compassFont);
 
         // Draw compass rose background
-        g.setColor(new Color(0, 0, 0, 200));
+        g.setColor(COMPASS_BACKGROUND);
         g.fillOval(centerX - radius - 2, centerY - radius - 2, (radius + 2) * 2, (radius + 2) * 2);
 
         g.setColor(ACCENT_COLOR);
-        g.setStroke(new BasicStroke(1.5f));
+        g.setStroke(STROKE_1_5);
         g.drawOval(centerX - radius, centerY - radius, radius * 2, radius * 2);
 
-        // Draw cardinal directions: label, angle, highlighted
-        record Direction(String label, double angle, boolean bold) {}
-        List<Direction> directions = List.of(
-                new Direction("N", 0.0, true),
-                new Direction("E", 90.0, false),
-                new Direction("S", 180.0, false),
-                new Direction("W", 270.0, false));
-
-        for (Direction direction : directions) {
+        for (Direction direction : DIRECTIONS) {
             double radians = Math.toRadians(direction.angle());
             int x = centerX + (int) (Math.cos(radians) * (radius - 5));
             int y = centerY + (int) (Math.sin(radians) * (radius - 5));
 
-            g.setColor(direction.bold() ? new Color(255, 100, 100) : TEXT_COLOR);
-            if (direction.bold()) {
-                g.setFont(font.deriveFont(Font.BOLD));
-            }
+            g.setColor(direction.bold() ? COMPASS_NORTH_COLOR : TEXT_COLOR);
+            g.setFont(direction.bold() ? compassBoldFont : compassFont);
             g.drawString(direction.label(), x - 3, y + 3);
-            g.setFont(font);
         }
+        g.setFont(compassFont);
 
         // Draw player direction indicator
         double radYaw = Math.toRadians(hudData.yaw());
         int dirX = centerX + (int) (Math.cos(radYaw) * radius * 0.7);
         int dirY = centerY + (int) (Math.sin(radYaw) * radius * 0.7);
-        g.setColor(new Color(100, 200, 255));
+        g.setColor(DIRECTION_COLOR);
         g.fillOval(dirX - 2, dirY - 2, 4, 4);
         g.drawOval(dirX - 2, dirY - 2, 4, 4);
     }
 
     private void drawControlsHint(Graphics2D g, int height) {
-        Font font = g.getFont().deriveFont(FONT_SIZE - 2);
-        FontMetrics metrics = g.getFontMetrics(font);
-
-        String controls = "WASD: Move | Mouse: Look | Q/E: Up/Down | Regen: Generate New Terrain";
+        Font font = controlsFont;
+        FontMetrics metrics = controlsMetrics;
 
         int lineHeight = metrics.getHeight() + 3;
-        int panelWidth = metrics.stringWidth(controls) + 20;
+        int panelWidth = metrics.stringWidth(CONTROLS) + 20;
         int panelHeight = lineHeight + 10;
 
         int x = HUD_PADDING;
@@ -226,7 +283,7 @@ public final class HeadsUpDisplay {
         g.fillRect(x, y, panelWidth, panelHeight);
 
         g.setColor(ACCENT_COLOR);
-        g.setStroke(new BasicStroke(1.5f));
+        g.setStroke(STROKE_1_5);
         g.drawRect(x, y, panelWidth, panelHeight);
 
         // Draw corner decorations
@@ -238,6 +295,6 @@ public final class HeadsUpDisplay {
         // Draw text
         g.setFont(font);
         g.setColor(TEXT_COLOR);
-        g.drawString(controls, x + 10, y + 18);
+        g.drawString(CONTROLS, x + 10, y + 18);
     }
 }

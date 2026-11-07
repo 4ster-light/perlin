@@ -45,6 +45,11 @@ public final class ViewFrustum {
         return z > nearPlane && z < farPlane;
     }
 
+    /** Cheap depth-only near/far plane test used by the software rasterizer. */
+    public boolean isDepthInFrustum(double depth) {
+        return depth > nearPlane && depth < farPlane;
+    }
+
     /** Check if a triangle is potentially visible. */
     public boolean isTriangleVisible(Camera.Vector3 p1, Camera.Vector3 p2, Camera.Vector3 p3) {
         return isPointInFrustum(p1.x(), p1.y(), p1.z())
