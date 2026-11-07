@@ -2,15 +2,33 @@
 
 ## Running the Application
 
-No build tool is needed. The project uses Java's multi-file source launch
-(JEP 458), so one command compiles and runs everything:
+The project is written in Scala 3 and uses `scala-cli`, so there is no Gradle or
+Maven build. With Nix, the compiler and JDK are provided for you:
 
 ```bash
-java src/dev/aster/app/Main.java
+nix develop -c ./run.sh
 ```
 
-Requires Java 22+ (Java 25 recommended). There is no separate build step,
-no Gradle, and no Maven - the demo only uses the JDK's built-in Swing/AWT.
+Without entering a dev shell:
+
+```bash
+nix shell nixpkgs#scala_3 -c ./run.sh
+```
+
+If Scala 3.9+ and a JDK 21+ are already installed:
+
+```bash
+./run.sh
+# or
+scala run .
+```
+
+To build a standalone launcher:
+
+```bash
+nix build
+./result/bin/perlin-landscape
+```
 
 ## Using the Application
 
@@ -99,19 +117,19 @@ water is deep or shallow.
 
 ## Customizing the Terrain
 
-Choose a seed in `src/dev/aster/app/Main.java`:
+Choose a seed in `src/dev/aster/app/Main.scala`:
 
-```java
-long seed = System.currentTimeMillis();
-Terrain terrain = new Terrain(seed);
+```scala
+val seed = System.currentTimeMillis()
+val terrain = new Terrain(seed)
 ```
 
-The interesting worldgen is in `src/dev/aster/terrain/Terrain.java`:
+The interesting worldgen is in `src/dev/aster/terrain/Terrain.scala`:
 
-```java
-private static final int CHUNK_SIZE = 16;        // Height samples per chunk edge
-private static final double SEA_LEVEL = 16.0;    // Flat ocean height
-private static final int MAX_CACHED_CHUNKS = 4096;
+```scala
+private val CHUNK_SIZE = 16        // Height samples per chunk edge
+private val SEA_LEVEL = 16.0       // Flat ocean height
+private val MAX_CACHED_CHUNKS = 4096
 ```
 
 `generateHeight(...)` combines four noise layers:
@@ -127,19 +145,19 @@ to make the world flatter, more mountainous, or more island-like.
 
 ## Camera Settings
 
-Edit `src/dev/aster/camera/Camera.java` to adjust player movement:
+Edit `src/dev/aster/camera/Camera.scala` to adjust player movement:
 
-```java
-private static final double MOVEMENT_SPEED = 1.2;  // Units per frame
-private static final double VERTICAL_SPEED = 0.8;  // Up/down speed
-private static final double MOUSE_SENSITIVITY = 0.15; // Degrees per pixel
+```scala
+private val MOVEMENT_SPEED = 1.2      // Units per frame
+private val VERTICAL_SPEED = 0.8      // Up/down speed
+private val MOUSE_SENSITIVITY = 0.15  // Degrees per pixel
 ```
 
-Edit `src/dev/aster/render/Renderer3D.java` for rendering performance:
+Edit `src/dev/aster/render/Renderer3D.scala` for rendering performance:
 
-```java
-private static final double FOV = 70.0;            // Field of view in degrees
-public static final int RENDER_DISTANCE = 120;     // How far to render (world units)
+```scala
+private val FOV = 70.0             // Field of view in degrees
+val RENDER_DISTANCE = 120          // How far to render (world units)
 ```
 
 ## Performance Tuning
@@ -154,16 +172,17 @@ public static final int RENDER_DISTANCE = 120;     // How far to render (world u
 
 - Increase `RENDER_DISTANCE` to 160-200
 - Increase `MAX_CACHED_CHUNKS` if you explore large areas
-- Raise `PRELOAD_RADIUS` in `Main.java` for a larger initial buffer
+- Raise `PRELOAD_RADIUS` in `Main.scala` for a larger initial buffer
 
 ## Rebuilding
 
-There is nothing to rebuild - just run the app again and your source changes
-are picked up automatically:
+`scala-cli` recompiles changed sources automatically. Just relaunch:
 
 ```bash
-java src/dev/aster/app/Main.java
+nix develop -c ./run.sh
 ```
+
+The Scala build cache is stored in `.scala-build/` and is ignored by git.
 
 ## Tips for Exploration
 
@@ -184,7 +203,7 @@ java src/dev/aster/app/Main.java
 ### Performance is Slow
 
 - Reduce `RENDER_DISTANCE`
-- Reduce `PRELOAD_RADIUS` in `Main.java`
+- Reduce `PRELOAD_RADIUS` in `Main.scala`
 - Lower movement and mouse sensitivity if it's laggy
 
 ### Can't Move
@@ -208,14 +227,28 @@ java src/dev/aster/app/Main.java
 ### Window won't open
 
 ```bash
-# Try with explicit Java options
-java -Xmx1024M src/dev/aster/app/Main.java
+# Enter the Nix dev shell and launch from there
+nix develop -c ./run.sh
+
+# Or build and run the packaged launcher
+nix build
+./result/bin/perlin-landscape
 ```
 
 ### Compilation fails
 
-Make sure you're on Java 22 or newer (`java -version`); older JVMs don't
-support multi-file source launching.
+Make sure you have Scala 3.9+ and JDK 21+. The easiest path is:
+
+```bash
+nix develop
+scala compile .
+```
+
+On a headless machine, run the GUI under Xvfb:
+
+```bash
+nix shell nixpkgs#xvfb-run -c xvfb-run -a ./run.sh
+```
 
 ### No terrain visible
 
@@ -228,10 +261,10 @@ support multi-file source launching.
 Once you're comfortable with the controls:
 
 1. Experiment with the noise layers and multipliers in
-   `src/dev/aster/terrain/Terrain.java`
+   `src/dev/aster/terrain/Terrain.scala`
 2. Generate several seeds and find your favorite world
 3. Explore the codebase - it's well-commented for learning
-4. Modify the biome palette in `Terrain.java`
+4. Modify the biome palette in `Terrain.scala`
 5. Try adjusting render distance and chunk-cache size for your system
 
 Enjoy exploring the infinite procedural landscape!

@@ -39,3 +39,9 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+### Scala CLI / Metals ###
+.scala-build/
+.bsp/
+.metals/
+.bloop/
