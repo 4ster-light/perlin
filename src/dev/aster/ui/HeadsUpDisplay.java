@@ -13,16 +13,19 @@ import java.awt.image.BufferedImage;
 /**
  * Heads-up display showing player stats and mini-map with modern styling.
  *
- * <p>The mini-map is a static function of the terrain, so it is rasterized once
- * per terrain into an off-screen image and then blitted every frame. Fonts and
- * font metrics are cached for the same reason: the HUD is repainted at the game
- * loop rate and should not allocate or re-rasterize static artwork.
+ * <p>The mini-map shows a local window around the player. It is rebuilt only
+ * when the player moves far enough to matter, then blitted every frame. Fonts
+ * and font metrics are cached for the same reason: the HUD is repainted at the
+ * game loop rate and should not allocate or re-rasterize static artwork.
  */
 public final class HeadsUpDisplay {
 
     private static final int HUD_PADDING = 15;
     private static final int MINI_MAP_SIZE = 200; // Increased from 180
     private static final int MINI_MAP_PADDING = 15;
+    private static final int MINI_MAP_BLOCK = 4;
+    private static final double MINI_MAP_SPAN = 160.0; // world units across
+    private static final double MINI_MAP_REBUILD_DISTANCE = 8.0;
     private static final float FONT_SIZE = 13f;
 
     private static final Color TEXT_COLOR = Color.WHITE;
@@ -48,8 +51,6 @@ public final class HeadsUpDisplay {
             double cameraY,
             double cameraZ,
             int fps,
-            int terrainWidth,
-            int terrainHeight,
             Terrain terrain,
             double yaw) {}
 
@@ -65,6 +66,8 @@ public final class HeadsUpDisplay {
     // Cached static artwork / typography
     private Terrain cachedTerrain;
     private BufferedImage cachedMiniMap;
+    private double cachedCenterX = Double.NaN;
+    private double cachedCenterY = Double.NaN;
 
     private Font statsFont;
     private Font statsBoldFont;
@@ -156,8 +159,10 @@ public final class HeadsUpDisplay {
         }
     }
 
-    private void ensureMiniMap(Terrain terrain) {
-        if (terrain == cachedTerrain) {
+    private void ensureMiniMap(Terrain terrain, double centerX, double centerY) {
+        if (terrain == cachedTerrain && cachedMiniMap != null
+                && Math.abs(centerX - cachedCenterX) < MINI_MAP_REBUILD_DISTANCE
+                && Math.abs(centerY - cachedCenterY) < MINI_MAP_REBUILD_DISTANCE) {
             return;
         }
 
@@ -166,30 +171,32 @@ public final class HeadsUpDisplay {
         g.setColor(MINI_MAP_BACKGROUND);
         g.fillRect(0, 0, MINI_MAP_SIZE, MINI_MAP_SIZE);
 
-        double scale = (double) MINI_MAP_SIZE / Math.max(terrain.width(), terrain.height());
-        int pixelSize = Math.max(1, (int) scale);
-        int sampleRate = Math.max(1, terrain.width() / (MINI_MAP_SIZE / 3));
+        int blocks = MINI_MAP_SIZE / MINI_MAP_BLOCK;
+        double worldStep = MINI_MAP_SPAN / blocks;
+        double halfSpan = MINI_MAP_SPAN / 2.0;
 
-        for (int ix = 0; ix < terrain.width(); ix += sampleRate) {
-            int screenX = (int) (ix * scale);
-            for (int iy = 0; iy < terrain.height(); iy += sampleRate) {
-                int color = terrain.colorIndexForHeight(terrain.heightAt(ix, iy));
+        for (int by = 0; by < blocks; by++) {
+            double worldY = centerY - halfSpan + (by + 0.5) * worldStep;
+            int screenY = by * MINI_MAP_BLOCK;
+            for (int bx = 0; bx < blocks; bx++) {
+                double worldX = centerX - halfSpan + (bx + 0.5) * worldStep;
+                int color = terrain.colorIndexAt((int) Math.floor(worldX), (int) Math.floor(worldY));
                 g.setColor(Terrain.colorForIndex(color));
-                g.fillRect(screenX, (int) (iy * scale), pixelSize, pixelSize);
+                g.fillRect(bx * MINI_MAP_BLOCK, screenY, MINI_MAP_BLOCK, MINI_MAP_BLOCK);
             }
         }
 
         g.dispose();
         cachedTerrain = terrain;
         cachedMiniMap = image;
+        cachedCenterX = centerX;
+        cachedCenterY = centerY;
     }
 
     private void drawMiniMap(Graphics2D g, HUDData hudData, int x) {
-        ensureMiniMap(hudData.terrain());
+        ensureMiniMap(hudData.terrain(), hudData.cameraX(), hudData.cameraY());
 
-        double scale = (double) MINI_MAP_SIZE / Math.max(hudData.terrainWidth(), hudData.terrainHeight());
-
-        // Background + terrain raster, baked once per terrain
+        // Background + local terrain raster
         g.drawImage(cachedMiniMap, x, MINI_MAP_PADDING, null);
 
         g.setColor(ACCENT_COLOR);
@@ -202,9 +209,9 @@ public final class HeadsUpDisplay {
         g.drawLine(x + MINI_MAP_SIZE - 15, MINI_MAP_PADDING + 5, x + MINI_MAP_SIZE - 5, MINI_MAP_PADDING + 5);
         g.drawLine(x + MINI_MAP_SIZE - 5, MINI_MAP_PADDING + 5, x + MINI_MAP_SIZE - 5, MINI_MAP_PADDING + 15);
 
-        // Draw player position indicator
-        int playerScreenX = x + (int) (hudData.cameraX() * scale);
-        int playerScreenY = MINI_MAP_PADDING + (int) (hudData.cameraY() * scale);
+        // Draw player position indicator (always the centre of the local map)
+        int playerScreenX = x + MINI_MAP_SIZE / 2;
+        int playerScreenY = MINI_MAP_PADDING + MINI_MAP_SIZE / 2;
 
         // Draw position crosshair
         g.setColor(PLAYER_MARKER_COLOR);

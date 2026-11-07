@@ -1,8 +1,8 @@
 # Perlin Noise Procedural Landscape Generator
 
-A 3D procedural terrain generator using Perlin noise algorithm, now featuring a
-**first-person immersive experience**, implemented in Java (Swing/AWT) with
-real-time 3D visualization.
+An infinite 3D procedural landscape generated with Perlin and ridged noise,
+now featuring a **first-person immersive experience**, implemented in Java
+(Swing/AWT) with real-time software 3D visualization.
 
 ![Showcase Image](./Showcase.png)
 
@@ -21,15 +21,18 @@ real-time 3D visualization.
 
 ### Terrain Generation
 
-- **Perlin Noise Algorithm**: Pure implementation of Ken Perlin's noise
-  algorithm for natural-looking terrain
-- **Octave Noise**: Multiple noise frequencies combined for realistic fractal
-  terrain details
-- **Expanded Generation**: 200x200 vertex grid for detailed expansive landscapes
-  (4x original size)
-- **Async Generation**: Non-blocking terrain generation with visual feedback
-- **Procedural Customization**: Click "Regenerate Terrain" to create new
-  landscapes with different seeds
+- **Truly Procedural World**: Infinite terrain generated on demand; chunks are
+  created as you explore and evicted from an LRU cache when far away
+- **Layered Noise**: Domain-warped continentalness, erosion, rolling hills and
+  ridged multifractal mountains combine for natural terrain
+- **Biomes**: Temperature and moisture fields drive beaches, deserts,
+  grasslands, forests, savanna, rock and snow
+- **Flat Oceans**: Water is rendered at sea level while the underlying height
+  still controls deep vs. shallow coloring
+- **Deterministic Seeds**: Every location is a pure function of its coordinates
+  and seed, so revisiting an area regenerates it identically
+- **Procedural Customization**: Click "Regenerate Terrain" to create a new
+  infinite world with a different seed
 
 ### Advanced Rendering
 
@@ -37,11 +40,14 @@ real-time 3D visualization.
 - **Frustum Culling**: Intelligent triangle culling to render only visible
   geometry
 - **Render Distance**: Configurable rendering radius around player position
-- **Color-coded Elevation**:
+- **Color-coded Terrain**:
   - Deep blue: Deep water
   - Light blue: Shallow water
   - Tan: Sandy beaches
-  - Green: Grasslands
+  - Pale yellow: Deserts
+  - Light green: Grasslands
+  - Dark green: Forests
+  - Olive: Savanna
   - Brown: Rocky mountains
   - White: Snow-capped peaks
 
@@ -51,7 +57,7 @@ real-time 3D visualization.
   - Real-time position coordinates (X, Y, Z)
   - Performance metrics (FPS counter)
   - Current viewing direction/bearing
-  - Mini-map with player position and direction indicator
+  - Local mini-map that streams around the player as you explore
   - Compass rose for cardinal direction reference
 - **Modern Styling**: Dark theme with blue accent colors and decorative borders
 - **Responsive Controls**: Visual feedback on button interactions
@@ -66,7 +72,7 @@ src/dev/aster/
 ├── noise/
 │   └── PerlinNoise.java       - Perlin noise algorithm implementation
 ├── terrain/
-│   └── Terrain.java           - Terrain generation and height mapping
+│   └── Terrain.java           - Infinite chunked terrain generation and biomes
 ├── camera/
 │   ├── Camera.java            - First-person camera system with WASD + mouse look
 │   └── CollisionDetector.java - Terrain collision detection and camera constraints
@@ -127,11 +133,11 @@ The implementation uses:
 - Euler angle rotation (pitch and yaw) with mouse input
 - Smooth frame-rate independent movement using delta time
 - Camera height offset from terrain surface
-- Automatic boundary clamping to keep player within terrain bounds
+- Infinite traversal with only a numeric world-limit safety net
 
 ### 3D Rendering
 
-- Perspective projection with configurable FOV (90°)
+- Perspective projection with configurable FOV (70°)
 - First-person camera perspective transformation
 - Rotation matrices for camera orientation (yaw and pitch)
 - Triangular mesh generation from height map
@@ -140,59 +146,73 @@ The implementation uses:
 
 ### Performance Optimization
 
-- **Render Distance**: Only renders terrain within ~120 units of player
-- **Frustum Culling**: Near/far plane checks skip off-screen geometry
+- **Chunk Streaming**: Only the chunks visible around the player are generated
+  and cached; the rest of the infinite world does not exist in memory
+- **Render Distance**: Only renders terrain within ~120 units of the player
+- **Frustum Culling**: Near/far plane checks plus screen-space bounding-box
+  rejection skip off-screen geometry
+- **Software Rasterizer**: Scanline triangle fills and Bresenham wireframes
+  avoid per-triangle Java2D overhead; one pixel buffer is blitted per frame
+- **Reusable Buffers**: Vertex, triangle and frame buffers are retained between
+  frames, so the hot path is allocation-free
+- **Primitive Depth Sort**: Packed `long` keys replace per-triangle objects and
+  comparator sorting
+- **Cached HUD Artwork**: The local mini-map is rebuilt only when the player
+  moves, and fonts/metrics/palettes are cached
 - **Uniform Wireframe Mesh**: Every triangle carries its border, giving the
   demo its signature polygon-y look (geometric LOD was deliberately rejected:
   merging heightfield cells cracks the mesh without edge stitching)
-- **Efficient Sorting**: Z-depth sorting for correct occlusion handling
 
 ### Terrain Parameters
 
-- **Grid size**: 200x200 vertices (configurable)
-- **Scale**: 0.05 (controls feature size, 0.01-0.1 recommended)
-- **Octaves**: 5 (detail levels, 1-8 recommended)
-- **Height multiplier**: 50.0 (vertical exaggeration for dramatic terrain)
-- **Render distance**: 100 grid units
+- **Chunk size**: 16×16 height samples, generated on demand
+- **Sea level**: 16.0
+- **Surface height range**: roughly 5–65 units
+- **Biome fields**: temperature and moisture from low-frequency noise
+- **Render distance**: 120 world units
 - **Movement speed**: 1.2 units per frame
 - **Mouse sensitivity**: 0.15 degrees per pixel
 
 ## Customization
 
-You can modify terrain parameters in `src/dev/aster/app/Main.java`:
+The world seed is chosen in `src/dev/aster/app/Main.java`:
 
 ```java
-new Terrain(
-    200,       // width: Grid width (default: 200)
-    200,       // height: Grid height (default: 200)
-    noise,     // perlinNoise
-    0.05,      // scale: Smaller = larger features
-    5,         // octaves: Bigger = more detail
-    50.0       // heightMultiplier: Vertical scale
-);
+long seed = System.currentTimeMillis();
+Terrain terrain = new Terrain(seed);
 ```
+
+To experiment with worldgen, edit the constants and noise fields in
+`src/dev/aster/terrain/Terrain.java`:
+
+```java
+private static final int CHUNK_SIZE = 16;
+private static final double SEA_LEVEL = 16.0;
+```
+
+The `generateHeight(...)` method combines continentalness, erosion, hills and
+ridged mountains; `surfaceColorIndex(...)` maps elevation, temperature and
+moisture to biomes.
 
 Camera settings can be adjusted in `Camera.java`:
 
 ```java
-private static final double MOVEMENT_SPEED = 1.2;   // Units per frame
-private static final double VERTICAL_SPEED = 0.2;   // Units per frame (up/down)
-private static final double MOUSE_SENSITIVITY = 0.1; // Degrees per pixel
+private static final double MOVEMENT_SPEED = 1.2;    // Units per frame
+private static final double VERTICAL_SPEED = 0.8;    // Units per frame (up/down)
+private static final double MOUSE_SENSITIVITY = 0.15; // Degrees per pixel
 ```
 
 Rendering parameters in `Renderer3D.java`:
 
 ```java
 private static final double FOV = 70.0;
-private static final int RENDER_DISTANCE = 120;   // Grid units
+public static final int RENDER_DISTANCE = 120;   // World units
 ```
 
 ## Performance Considerations
 
-- **Grid Size**: 200x200 is the default balanced size
-  - Smaller grids (100x100) for older hardware
-  - Larger grids (300x300) for powerful systems
 - **Render Distance**: Reduce for better performance on slower systems
+- **Chunk Cache**: `MAX_CACHED_CHUNKS` in `Terrain.java` bounds memory use
 - **Mouse Sensitivity**: Adjust for comfortable control experience
 - **FPS Counter**: Shows actual rendering performance in real-time
 

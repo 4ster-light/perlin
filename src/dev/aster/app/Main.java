@@ -1,6 +1,5 @@
 package dev.aster.app;
 
-import dev.aster.noise.PerlinNoise;
 import dev.aster.render.Renderer3D;
 import dev.aster.terrain.Terrain;
 
@@ -22,27 +21,22 @@ import javax.swing.SwingUtilities;
  */
 public final class Main {
 
-    private static final int TERRAIN_WIDTH = 200;
-    private static final int TERRAIN_HEIGHT = 200;
-    private static final double TERRAIN_SCALE = 0.05;
-    private static final int TERRAIN_OCTAVES = 5;
-    private static final double TERRAIN_HEIGHT_MULTIPLIER = 50.0;
+    private static final double PRELOAD_RADIUS = Renderer3D.RENDER_DISTANCE + 24.0;
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(Main::createAndShowGui);
     }
 
     private static void createAndShowGui() {
-        JFrame frame = new JFrame("Perlin Noise Landscape Generator - First Person Experience");
+        JFrame frame = new JFrame("Infinite Procedural Landscape - First Person Experience");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
 
-        // Create initial terrain
+        // Create the initial world and preload the chunks around the spawn so
+        // the first painted frame does not have to generate them.
         long currentSeed = System.currentTimeMillis();
-        PerlinNoise perlinNoise = new PerlinNoise();
-        Terrain terrain = new Terrain(
-                TERRAIN_WIDTH, TERRAIN_HEIGHT, perlinNoise,
-                TERRAIN_SCALE, TERRAIN_OCTAVES, TERRAIN_HEIGHT_MULTIPLIER);
+        Terrain terrain = new Terrain(currentSeed);
+        terrain.preloadRegion(terrain.spawnX(), terrain.spawnY(), PRELOAD_RADIUS);
 
         // Mutable holder so the regenerate button can swap the renderer on the EDT
         Renderer3D[] rendererHolder = {new Renderer3D(terrain)};
@@ -78,14 +72,13 @@ public final class Main {
             regenerateButton.setEnabled(false);
             regenerateButton.setText("⟳ Generating...");
 
-            // Start async terrain generation
+            // Build and preload the next world off the EDT
             Thread worker = new Thread(() -> {
                 try {
                     long newSeed = System.currentTimeMillis();
-                    PerlinNoise newNoise = new PerlinNoise(newSeed);
-                    Terrain newTerrain = new Terrain(
-                            TERRAIN_WIDTH, TERRAIN_HEIGHT, newNoise,
-                            TERRAIN_SCALE, TERRAIN_OCTAVES, TERRAIN_HEIGHT_MULTIPLIER);
+                    Terrain newTerrain = new Terrain(newSeed);
+                    newTerrain.preloadRegion(
+                            newTerrain.spawnX(), newTerrain.spawnY(), PRELOAD_RADIUS);
 
                     // Replace renderer on EDT
                     SwingUtilities.invokeLater(() -> {
@@ -134,10 +127,10 @@ public final class Main {
         frame.setVisible(true);
 
         System.out.println("╔════════════════════════════════════════════════════════════╗");
-        System.out.println("║  Perlin Noise Landscape - First Person Experience Started  ║");
+        System.out.println("║ Infinite Procedural Landscape - First Person Started       ║");
         System.out.println("╠════════════════════════════════════════════════════════════╣");
         System.out.println("║ Seed: " + currentSeed + "                                        ║");
-        System.out.println("║ Terrain: 200x200 vertices • Scale: 0.05 • Octaves: 5       ║");
+        System.out.println("║ Terrain: infinite • chunks generated as you explore        ║");
         System.out.println("║                                                            ║");
         System.out.println("║ Controls:                                                  ║");
         System.out.println("║   • WASD      → Movement                                   ║");

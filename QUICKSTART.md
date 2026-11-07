@@ -53,11 +53,11 @@ landscape:
 
 #### Top-Right Panel (Mini-Map)
 
-- **Terrain visualization**: Birds-eye view of the landscape colored by
-  elevation
-- **Your position**: Yellow crosshair showing where you are
+- **Terrain visualization**: Local birds-eye view, colored by height and biome
+- **Your position**: Yellow crosshair, always centred on the map
 - **Your direction**: Blue line showing which way you're looking
 - **Reference grid**: Gray lines for orientation
+- The map scrolls and rebuilds as you explore the infinite world
 
 #### Top-Center (Compass)
 
@@ -82,46 +82,48 @@ landscape:
 
 ### Terrain Features
 
-The colors represent different terrain types based on elevation:
+The world is infinite and chunked. Colors represent height plus biome:
 
-- **Deep Blue** (#1E50B4): Deep water (lowest elevation)
+- **Deep Blue** (#1E50B4): Deep water
 - **Light Blue** (#3C78C8): Shallow water
-- **Tan/Beige** (#D2B48C): Sandy beaches
-- **Green** (#228B22): Grasslands and forests
+- **Tan/Beige** (#D6BE91): Sandy beaches
+- **Pale Yellow** (#DECC91): Deserts
+- **Light Green** (#60A04A): Grasslands
+- **Dark Green** (#286930): Forests
+- **Olive** (#A0A552): Savanna
 - **Brown** (#8B5A2B): Rocky mountains
-- **White** (#FFFFFF): Snow-capped peaks (highest elevation)
+- **White** (#F5F7FF): Snow-capped peaks
+
+Oceans are flat at sea level, while the underlying noise still decides whether
+water is deep or shallow.
 
 ## Customizing the Terrain
 
-Edit the constants in `src/dev/aster/app/Main.java`:
+Choose a seed in `src/dev/aster/app/Main.java`:
 
 ```java
-private static final int TERRAIN_WIDTH = 200;            // Grid width
-private static final int TERRAIN_HEIGHT = 200;           // Grid height
-private static final double TERRAIN_SCALE = 0.05;        // 0.01-0.1: smaller = larger features
-private static final int TERRAIN_OCTAVES = 5;            // 1-8: bigger = more detail
-private static final double TERRAIN_HEIGHT_MULTIPLIER = 50.0; // Vertical scale
+long seed = System.currentTimeMillis();
+Terrain terrain = new Terrain(seed);
 ```
 
-### Terrain Scale Guide
+The interesting worldgen is in `src/dev/aster/terrain/Terrain.java`:
 
-- **scale = 0.01**: Very large features, zoomed-out feel
-- **scale = 0.03**: Large rolling terrain
-- **scale = 0.05**: Balanced terrain (default)
-- **scale = 0.07**: More detailed, craggy terrain
-- **scale = 0.1**: Very fine, intricate features
+```java
+private static final int CHUNK_SIZE = 16;        // Height samples per chunk edge
+private static final double SEA_LEVEL = 16.0;    // Flat ocean height
+private static final int MAX_CACHED_CHUNKS = 4096;
+```
 
-### Detail Level
+`generateHeight(...)` combines four noise layers:
 
-- **octaves = 3**: Smooth, simple terrain
-- **octaves = 5**: Balanced detail (default)
-- **octaves = 7**: Very detailed, complex terrain (may impact performance)
+- **Continentalness**: large ocean basins and land masses
+- **Erosion**: broad flat areas vs. rough terrain
+- **Hills**: local rolling relief
+- **Ridged noise**: sharp mountain crests
 
-### Height Exaggeration
-
-- **heightMultiplier = 30.0**: Flatter terrain
-- **heightMultiplier = 50.0**: Balanced (default)
-- **heightMultiplier = 80.0**: Very mountainous
+`surfaceColorIndex(...)` adds temperature and moisture fields for biomes. Try
+changing the `smoothstep` thresholds or the multipliers on `hills` and `ridge`
+to make the world flatter, more mountainous, or more island-like.
 
 ## Camera Settings
 
@@ -137,24 +139,22 @@ Edit `src/dev/aster/render/Renderer3D.java` for rendering performance:
 
 ```java
 private static final double FOV = 70.0;            // Field of view in degrees
-private static final int RENDER_DISTANCE = 120;    // How far to render (grid units)
+public static final int RENDER_DISTANCE = 120;     // How far to render (world units)
 ```
 
 ## Performance Tuning
 
 ### For Slow Systems
 
-- Reduce `width` and `height` to 150x150 or 100x100
 - Reduce `RENDER_DISTANCE` to 60-80
-- Reduce `octaves` to 3-4
-- Increase `scale` to reduce detail (0.07+)
+- Reduce `CHUNK_SIZE` if you prefer smaller streaming hitches
+- Lower `MAX_CACHED_CHUNKS` to cap memory use more aggressively
 
 ### For Fast Systems
 
-- Increase `width` and `height` to 250x250 or 300x300
-- Increase `RENDER_DISTANCE` to 120+
-- Increase `octaves` to 6-7
-- Decrease `scale` for more detail (0.03-0.04)
+- Increase `RENDER_DISTANCE` to 160-200
+- Increase `MAX_CACHED_CHUNKS` if you explore large areas
+- Raise `PRELOAD_RADIUS` in `Main.java` for a larger initial buffer
 
 ## Rebuilding
 
@@ -169,23 +169,22 @@ java src/dev/aster/app/Main.java
 
 1. **Start High**: Generate terrain and immediately press Q to ascend for a
    better overview
-2. **Follow Water**: Look for water features and explore surrounding terrain
-3. **Find Mountains**: Navigate toward brown areas on the mini-map for dramatic
-   peaks
+2. **Follow Water**: Look for coastlines and explore the surrounding terrain
+3. **Find Mountains**: Navigate toward brown/white areas on the mini-map for
+   dramatic peaks
 4. **Use Compass**: The compass helps orient yourself, especially in complex
    terrain
 5. **Monitor FPS**: Keep an eye on the FPS counter; if it drops too low, reduce
-   terrain size or render distance
+   render distance
 6. **Try Different Seeds**: Each regeneration creates a completely unique
-   landscape
+   infinite world
 
 ## Common Issues
 
 ### Performance is Slow
 
-- Reduce terrain size (width/height)
 - Reduce `RENDER_DISTANCE`
-- Reduce `octaves` for less detail
+- Reduce `PRELOAD_RADIUS` in `Main.java`
 - Lower movement and mouse sensitivity if it's laggy
 
 ### Can't Move
@@ -200,9 +199,9 @@ java src/dev/aster/app/Main.java
 
 ### Terrain Looks Flat
 
-- Increase `heightMultiplier` for more dramatic elevation changes
-- Reduce `scale` for more varied terrain features
-- Increase `octaves` for more detail
+- Increase the `ridge` multiplier in `generateHeight(...)`
+- Lower the mountain `smoothstep` thresholds so mountains appear more often
+- Increase the `hills` multiplier or amplitude for rougher ground
 
 ## Troubleshooting
 
@@ -228,10 +227,11 @@ support multi-file source launching.
 
 Once you're comfortable with the controls:
 
-1. Experiment with different scale and octave values
-2. Generate several terrains and find your favorite
+1. Experiment with the noise layers and multipliers in
+   `src/dev/aster/terrain/Terrain.java`
+2. Generate several seeds and find your favorite world
 3. Explore the codebase - it's well-commented for learning
-4. Consider modifying the terrain colors in `src/dev/aster/terrain/Terrain.java`
-5. Try adjusting performance parameters for your system
+4. Modify the biome palette in `Terrain.java`
+5. Try adjusting render distance and chunk-cache size for your system
 
-Enjoy exploring procedurally generated landscapes!
+Enjoy exploring the infinite procedural landscape!

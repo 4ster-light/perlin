@@ -71,7 +71,7 @@ public final class Renderer3D extends JPanel implements KeyListener {
     private final Set<Integer> keysPressed = new HashSet<>();
 
     private static final double FOV = 70.0;
-    private static final int RENDER_DISTANCE = 120;
+    public static final int RENDER_DISTANCE = 120;
     private static final double NEAR_PLANE = 0.5;
     private static final double FAR_PLANE = RENDER_DISTANCE * 2.0;
     private static final int FRAME_DELAY_MS = 16;
@@ -92,7 +92,7 @@ public final class Renderer3D extends JPanel implements KeyListener {
     private final int[] vertexScreenX;
     private final int[] vertexScreenY;
     private final float[] vertexDepth;
-    private final double[] vertexHeight;
+    private final byte[] vertexColor;
     private final boolean[] vertexValid;
     private final double[] columnCos;
     private final double[] columnSin;
@@ -116,21 +116,21 @@ public final class Renderer3D extends JPanel implements KeyListener {
 
     public Renderer3D(Terrain terrain) {
         this.terrain = terrain;
-        this.camera = new Camera(terrain.width() / 2.0, terrain.height() / 2.0, 0.0, 0.0, 0.0);
+        this.camera = new Camera(terrain.spawnX(), terrain.spawnY(), 0.0, 0.0, 0.0);
         this.collision = new CollisionDetector(terrain);
 
         // Start hovering above the terrain surface
         collision.adjustCameraPosition(camera);
 
-        this.maxRegionWidth = Math.min(terrain.width(), RENDER_DISTANCE * 2 + 1);
-        this.maxRegionHeight = Math.min(terrain.height(), RENDER_DISTANCE * 2 + 1);
+        this.maxRegionWidth = RENDER_DISTANCE * 2 + 1;
+        this.maxRegionHeight = RENDER_DISTANCE * 2 + 1;
         int maxVertices = maxRegionWidth * maxRegionHeight;
         this.maxTriangles = maxVertices * 2;
 
         this.vertexScreenX = new int[maxVertices];
         this.vertexScreenY = new int[maxVertices];
         this.vertexDepth = new float[maxVertices];
-        this.vertexHeight = new double[maxVertices];
+        this.vertexColor = new byte[maxVertices];
         this.vertexValid = new boolean[maxVertices];
         this.columnCos = new double[maxRegionWidth];
         this.columnSin = new double[maxRegionWidth];
@@ -277,7 +277,6 @@ public final class Renderer3D extends JPanel implements KeyListener {
         var hudData = new HeadsUpDisplay.HUDData(
                 camera.x, camera.y, camera.z,
                 currentFPS,
-                terrain.width(), terrain.height(),
                 terrain,
                 camera.yaw);
         hud.draw(g2d, hudData, getWidth(), getHeight());
@@ -328,13 +327,16 @@ public final class Renderer3D extends JPanel implements KeyListener {
         final double camY = camera.y;
         final double camZ = camera.z;
 
-        int camGridX = (int) camX;
-        int camGridY = (int) camY;
+        int camGridX = (int) Math.floor(camX);
+        int camGridY = (int) Math.floor(camY);
 
-        int xStart = Math.max(0, camGridX - RENDER_DISTANCE);
-        int xEnd = Math.min(terrain.width() - 1, camGridX + RENDER_DISTANCE);
-        int yStart = Math.max(0, camGridY - RENDER_DISTANCE);
-        int yEnd = Math.min(terrain.height() - 1, camGridY + RENDER_DISTANCE);
+        int xStart = camGridX - RENDER_DISTANCE;
+        int xEnd = camGridX + RENDER_DISTANCE;
+        int yStart = camGridY - RENDER_DISTANCE;
+        int yEnd = camGridY + RENDER_DISTANCE;
+
+        // Generate any chunks that entered the view since the last frame.
+        terrain.ensureRegionLoaded(xStart, yStart, xEnd, yEnd);
 
         final int regionWidth = xEnd - xStart + 1;
         final int regionHeight = yEnd - yStart + 1;
@@ -362,7 +364,8 @@ public final class Renderer3D extends JPanel implements KeyListener {
             int base = col;
             for (int row = 0; row < regionHeight; row++) {
                 int vi = base + row * stride;
-                double wz = terrain.heightAt(gx, yStart + row);
+                int gy = yStart + row;
+                double wz = terrain.heightAt(gx, gy);
                 double rx = cx - rowSin[row];
                 double ry = sx + rowCos[row];
                 double dz = wz - camZ;
@@ -374,7 +377,7 @@ public final class Renderer3D extends JPanel implements KeyListener {
                     vertexScreenX[vi] = (int) (halfWidth + rx * invDepth * scaleX);
                     vertexScreenY[vi] = (int) (halfHeight - finalZ * invDepth * scaleY);
                     vertexDepth[vi] = (float) depth;
-                    vertexHeight[vi] = wz;
+                    vertexColor[vi] = (byte) terrain.colorIndexAt(gx, gy);
                     vertexValid[vi] = true;
                 } else {
                     vertexValid[vi] = false;
@@ -639,8 +642,13 @@ public final class Renderer3D extends JPanel implements KeyListener {
 
         triangleDepth[count] = (vertexDepth[i1] + vertexDepth[i2] + vertexDepth[i3]) / 3.0f;
 
-        double avgHeight = (vertexHeight[i1] + vertexHeight[i2] + vertexHeight[i3]) / 3.0;
-        triangleColor[count] = (byte) terrain.colorIndexForHeight(avgHeight);
+        // Pick a majority surface color among the corners so biome borders do
+        // not create a directional grid pattern.
+        int c1 = vertexColor[i1];
+        int c2 = vertexColor[i2];
+        int c3 = vertexColor[i3];
+        int color = (c1 == c2 || c1 == c3) ? c1 : (c2 == c3 ? c2 : c1);
+        triangleColor[count] = (byte) color;
 
         return count + 1;
     }

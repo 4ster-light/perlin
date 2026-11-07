@@ -89,6 +89,33 @@ public final class PerlinNoise {
         return octaveNoise(x, y, octaves, 0.5);
     }
 
+    /**
+     * Ridged multifractal noise, useful for mountain crests and sharp valleys.
+     *
+     * @return normalized value roughly between 0 and 1
+     */
+    public double ridgedNoise(double x, double y, int octaves, double persistence) {
+        double total = 0.0;
+        double frequency = 1.0;
+        double amplitude = 1.0;
+        double maxValue = 0.0;
+        double weight = 1.0;
+
+        for (int i = 0; i < octaves; i++) {
+            double ridge = 1.0 - Math.abs(noise(x * frequency, y * frequency));
+            ridge *= ridge;
+            ridge *= weight;
+            weight = Math.clamp(ridge * 2.0, 0.0, 1.0);
+
+            total += ridge * amplitude;
+            maxValue += amplitude;
+            amplitude *= persistence;
+            frequency *= 2.0;
+        }
+
+        return total / maxValue;
+    }
+
     private static double fade(double t) {
         return t * t * t * (t * (t * 6 - 15) + 10);
     }
