@@ -1,6 +1,6 @@
-package dev.aster.render
+package perlin.render
 
-import dev.aster.camera.Camera
+import perlin.camera.Camera
 
 /** View frustum for culling triangles outside the visible area. */
 final class ViewFrustum(

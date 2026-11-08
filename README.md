@@ -77,7 +77,7 @@ featuring a **first-person immersive experience**, implemented in **Scala 3**
 ├── .scalafix.conf             - Scalafix rules (OrganizeImports)
 ├── flake.nix                  - Nix dev shell, package, app and checks
 ├── flake.lock
-└── src/main/scala/dev/aster/
+└── src/main/scala/perlin/
     ├── app/
     │   └── Main.scala         - Application entry point and GUI setup
     ├── noise/
@@ -95,9 +95,10 @@ featuring a **first-person immersive experience**, implemented in **Scala 3**
         └── HeadsUpDisplay.scala - HUD rendering with stats and local mini-map
 ```
 
-Sources use the standard scala-cli/sbt layout (`src/main/scala`). Each concern
-lives in its own package (`app`, `noise`, `terrain`, `camera`, `render`, `ui`),
-and the pixel-level rasterizer is kept separate from the projection/scene code.
+Sources use the standard scala-cli/sbt layout (`src/main/scala`). The root
+package is `perlin`, with concerns split into `perlin.app`, `perlin.noise`,
+`perlin.terrain`, `perlin.camera`, `perlin.render` and `perlin.ui`. The
+pixel-level rasterizer is kept separate from the projection/scene code.
 
 ## Running
 
@@ -324,7 +325,7 @@ water is deep or shallow. Terrain height comes from four noise layers:
 
 ### Seed
 
-Choose a seed in `src/main/scala/dev/aster/app/Main.scala`:
+Choose a seed in `src/main/scala/perlin/app/Main.scala`:
 
 ```scala
 val seed = System.currentTimeMillis()
@@ -333,7 +334,7 @@ val terrain = new Terrain(seed)
 
 ### World Generation
 
-The interesting worldgen lives in `src/main/scala/dev/aster/terrain/Terrain.scala`:
+The interesting worldgen lives in `src/main/scala/perlin/terrain/Terrain.scala`:
 
 ```scala
 private val CHUNK_SIZE = 16        // Height samples per chunk edge
@@ -348,7 +349,7 @@ and `ridge` to make the world flatter, more mountainous, or more island-like.
 
 ### Camera
 
-Edit `src/main/scala/dev/aster/camera/Camera.scala`:
+Edit `src/main/scala/perlin/camera/Camera.scala`:
 
 ```scala
 private val MOVEMENT_SPEED = 1.2      // Units per frame
@@ -358,7 +359,7 @@ private val MOUSE_SENSITIVITY = 0.15  // Degrees per pixel
 
 ### Rendering
 
-Edit `src/main/scala/dev/aster/render/Renderer3D.scala`:
+Edit `src/main/scala/perlin/render/Renderer3D.scala`:
 
 ```scala
 private val FOV = 70.0             // Field of view in degrees

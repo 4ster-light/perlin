@@ -1,4 +1,4 @@
-package dev.aster.render
+package perlin.render
 
 import java.awt.image.BufferedImage
 import java.awt.image.DataBufferInt

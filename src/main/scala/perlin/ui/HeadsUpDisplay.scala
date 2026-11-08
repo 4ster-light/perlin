@@ -1,6 +1,6 @@
-package dev.aster.ui
+package perlin.ui
 
-import dev.aster.terrain.Terrain
+import perlin.terrain.Terrain
 
 import java.awt.BasicStroke
 import java.awt.Color

@@ -1,7 +1,7 @@
-package dev.aster.app
+package perlin.app
 
-import dev.aster.render.Renderer3D
-import dev.aster.terrain.Terrain
+import perlin.render.Renderer3D
+import perlin.terrain.Terrain
 
 import java.awt.BorderLayout
 import java.awt.Color

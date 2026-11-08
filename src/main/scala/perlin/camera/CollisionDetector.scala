@@ -1,6 +1,6 @@
-package dev.aster.camera
+package perlin.camera
 
-import dev.aster.terrain.Terrain
+import perlin.terrain.Terrain
 
 /** Handles collision detection between camera and terrain. */
 final class CollisionDetector(private val terrain: Terrain) {

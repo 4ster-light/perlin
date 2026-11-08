@@ -1,9 +1,9 @@
-package dev.aster.render
+package perlin.render
 
-import dev.aster.camera.Camera
-import dev.aster.camera.CollisionDetector
-import dev.aster.terrain.Terrain
-import dev.aster.ui.HeadsUpDisplay
+import perlin.camera.Camera
+import perlin.camera.CollisionDetector
+import perlin.terrain.Terrain
+import perlin.ui.HeadsUpDisplay
 
 import java.awt.BasicStroke
 import java.awt.Color

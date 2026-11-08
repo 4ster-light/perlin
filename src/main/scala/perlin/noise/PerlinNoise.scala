@@ -1,4 +1,4 @@
-package dev.aster.noise
+package perlin.noise
 
 import scala.util.Random
 

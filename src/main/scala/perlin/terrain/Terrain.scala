@@ -1,6 +1,6 @@
-package dev.aster.terrain
+package perlin.terrain
 
-import dev.aster.noise.PerlinNoise
+import perlin.noise.PerlinNoise
 
 import java.awt.Color
 import scala.collection.mutable
