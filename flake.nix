@@ -13,7 +13,7 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         scala = pkgs.scala_3;
-        jdk = pkgs.jdk25;
+        jdk = pkgs.jdk21;
       in
       {
         devShells.default = pkgs.mkShell {
@@ -45,7 +45,7 @@
               --scalac-options -Wunused:imports \
               --scala-version 3.9.0 \
               --check \
-              src
+              src/main/scala
           '';
 
           installPhase = ''
