@@ -4,17 +4,27 @@ An infinite 3D procedural landscape generated with Perlin and ridged noise,
 featuring a **first-person immersive experience**, implemented in **Scala 3**
 (Swing/AWT) with real-time software 3D visualization.
 
+The same generator is available as a dependency-free command-line tool that
+exports seeded PNG maps, ANSI-coloured ASCII, and layered SVG contours.
+
 ![Showcase Image](./Showcase.png)
+
+![Example map generated with seed 2024](./docs/example-map.png)
 
 ## Features
 
 ### Language & Tooling
 
-- **Scala 3**: renderer, world generator, camera and UI are all Scala
-- **scala-cli**: no Gradle/Maven build; configuration lives in `project.scala`
+- **Scala 3.9**: renderer, map generator, CLI, camera and UI are all Scala
+- **Scala code runner**: no Gradle/Maven build; configuration lives in
+  `project.scala`. Recent Scala distributions ship the Scala CLI runner as
+  `scala`, so no separate `scala-cli` package is required.
 - **Nix flake**: dev shell, package, app and checks
 - **Scalafmt + Scalafix**: shared formatting/config and an automated lint check
-- **JDK Swing/AWT only** at runtime - no third-party runtime libraries
+- **JDK Swing/AWT + `javax.imageio` only** at runtime - no third-party runtime
+  libraries
+- **Munit tests**: noise reference vectors, smoothness properties, biome tables,
+  determinism, exporters and execution strategies
 
 ### First-Person Experience
 
@@ -68,37 +78,84 @@ featuring a **first-person immersive experience**, implemented in **Scala 3**
 - **Modern styling**: dark theme, blue accents and decorative borders
 - **Responsive controls**: visual feedback on the regenerate button
 
+### Map Generation and Export
+
+- **Opaque domain types**: `WorldCoordinate`, `GridCell`, `Altitude`,
+  `Moisture` and `Latitude` keep units from being mixed at module boundaries
+- **Composable noise values**: `Noise[A]` layers with `fBm`, `ridged`, `warp`,
+  `mix`/`blend` and `map`
+- **Two-channel terrain**: altitude plus moisture drive an exhaustive
+  `enum Biome` classification
+- **PNG export**: biome-coloured maps through `javax.imageio`
+- **ANSI ASCII export**: a height ramp with 24-bit colour, or plain text
+- **SVG export**: layered marching-squares terrain contours
+- **Seeded and deterministic**: every map is a pure function of its seed and
+  parameters
+
+### Execution Strategies and Benchmarks
+
+- **Sequential**: straightforward single-threaded generation
+- **Parallel**: JVM parallel-stream fan-out
+- **Chunked**: `Future` fan-out sized to `Runtime.getRuntime.availableProcessors`
+- **Benchmark command**: JVM warm-up, repeated runs, min/median timings and
+  speedup ratios against the sequential baseline
+
 ## Project Structure
 
 ```plaintext
 .
-├── project.scala              - scala-cli directives (Scala 3.9, options, main class)
+├── project.scala              - Scala code-runner directives (Scala 3.9, test dep)
 ├── .scalafmt.conf             - shared Scalafmt configuration
-├── .scalafix.conf             - Scalafix rules (OrganizeImports)
+├── .scalafix.conf             - Scalafix rules (DisableSyntax, imports, for-comprehensions)
 ├── flake.nix                  - Nix dev shell, package, app and checks
 ├── flake.lock
-└── src/main/scala/perlin/
-    ├── app/
-    │   └── Main.scala         - Application entry point and GUI setup
-    ├── noise/
-    │   └── PerlinNoise.scala  - Perlin and ridged noise implementation
-    ├── terrain/
-    │   └── Terrain.scala      - Infinite chunked terrain generation and biomes
-    ├── camera/
-    │   ├── Camera.scala       - First-person camera with WASD + mouse look
-    │   └── CollisionDetector.scala - Terrain collision and camera constraints
-    ├── render/
-    │   ├── Renderer3D.scala   - Projection, culling, painter ordering and frame loop
-    │   ├── SoftwareRasterizer.scala - Pixel buffer, scanline fills and wireframe lines
-    │   └── ViewFrustum.scala  - Camera frustum helpers
-    └── ui/
-        └── HeadsUpDisplay.scala - HUD rendering with stats and local mini-map
+├── docs/
+│   └── example-map.png        - example CLI-generated map
+├── src/main/scala/perlin/
+│   ├── app/
+│   │   └── Main.scala         - GUI entry point and CLI dispatch
+│   ├── cli/
+│   │   ├── CliMain.scala      - generate/render/benchmark/gui subcommands
+│   │   └── Benchmark.scala    - warm-up, repetitions and speedup table
+│   ├── core/
+│   │   └── Units.scala        - opaque WorldCoordinate/GridCell/Altitude units
+│   ├── noise/
+│   │   ├── PerlinNoise.scala  - seeded Perlin, octave and ridged noise
+│   │   └── Noise.scala        - composable Noise[A] and combinators
+│   ├── world/
+│   │   ├── Biome.scala        - exhaustive Biome enum and classifier
+│   │   ├── WorldMap.scala     - parameters, samples, maps and chunks
+│   │   └── WorldGenerator.scala - pure seeded altitude/moisture pipeline
+│   ├── execution/
+│   │   └── ExecutionStrategy.scala - sequential, parallel and chunked strategies
+│   ├── output/
+│   │   ├── Palette.scala      - shared biome colours and ASCII ramp
+│   │   ├── PngExporter.scala  - javax.imageio PNG writer
+│   │   ├── AsciiExporter.scala - ANSI/plain ASCII renderer
+│   │   └── SvgExporter.scala  - marching-squares SVG contours
+│   ├── terrain/
+│   │   └── Terrain.scala      - infinite chunked GUI terrain and legacy palette
+│   ├── camera/
+│   │   ├── Camera.scala       - first-person camera with WASD + mouse look
+│   │   └── CollisionDetector.scala - terrain collision and camera constraints
+│   ├── render/
+│   │   ├── Renderer3D.scala   - projection, culling, painter ordering and frame loop
+│   │   ├── SoftwareRasterizer.scala - pixel buffer, scanline fills and wireframe lines
+│   │   └── ViewFrustum.scala  - camera frustum helpers
+│   └── ui/
+│       └── HeadsUpDisplay.scala - HUD rendering with stats and local mini-map
+└── src/test/scala/perlin/
+    ├── noise/                 - reference vectors, smoothness and composition
+    ├── world/                 - biome table and deterministic generation
+    ├── execution/             - strategy equivalence
+    └── output/                - PNG/ASCII/SVG smoke tests
 ```
 
-Sources use the standard scala-cli/sbt layout (`src/main/scala`). The root
-package is `perlin`, with concerns split into `perlin.app`, `perlin.noise`,
-`perlin.terrain`, `perlin.camera`, `perlin.render` and `perlin.ui`. The
-pixel-level rasterizer is kept separate from the projection/scene code.
+Sources use the standard code-runner layout (`src/main/scala`, `src/test/scala`).
+The root package is `perlin`. The interactive viewer lives in `perlin.app`,
+`perlin.terrain`, `perlin.camera`, `perlin.render` and `perlin.ui`; the new map
+pipeline lives in `perlin.core`, `perlin.noise`, `perlin.world`,
+`perlin.execution` and `perlin.output`.
 
 ## Running
 
@@ -146,7 +203,7 @@ nix shell nixpkgs#scala_3 -c scala run .
 
 ### Run with an existing Scala toolchain
 
-Requires Scala 3.9+ and JDK 21+ (the Nix development shell uses JDK 25):
+Requires Scala 3.9+ and JDK 21+ (the Nix development shell uses JDK 21):
 
 ```bash
 scala run .
@@ -162,9 +219,96 @@ nix build
 ./result/bin/perlin-landscape
 ```
 
-The flake uses `scala-cli package --assembly` to produce a self-contained JAR
-and wraps it with the Nix-provided JDK. The same command works with
+The flake uses `scala --power package --assembly` (the Scala CLI runner built
+into the `scala` distribution) to produce a self-contained JAR and wraps it with
+the Nix-provided JDK. The same command works with
 `nix build github:4ster-light/perlin`.
+
+## Command-line Map Generator
+
+`scala run .` with no arguments launches the interactive viewer. With arguments
+it dispatches to the CLI, so the same entry point supports both workflows:
+
+```bash
+# Show every subcommand and option
+scala run . -- --help
+
+# Launch the viewer explicitly
+scala run . -- gui
+
+# Generate a map and print a biome histogram
+scala run . -- generate --seed 42 --width 128 --height 96
+
+# Export PNG (the default format)
+scala run . -- render --seed 42 --width 1024 --height 1024 --output map.png
+
+# Export plain ASCII
+scala run . -- render --seed 42 --width 120 --height 60 --format ascii --no-color
+
+# Export layered SVG contours
+scala run . -- render --seed 42 --format svg --levels 12 --output contours.svg
+
+# Benchmark all three execution strategies
+scala run . -- benchmark --width 1024 --height 1024 --octaves 6 --reps 5
+```
+
+The packaged launcher accepts the same arguments:
+
+```bash
+nix run . -- render --seed 42 --width 1024 --height 1024 --output map.png
+./result/bin/perlin-landscape benchmark --width 1024 --height 1024
+```
+
+The CLI is intentionally dependency-free: a small parser in `perlin.cli` handles
+subcommands and `--key value` / `--key=value` options, keeping the runtime free
+of third-party libraries.
+
+## Map Generation Pipeline
+
+The map pipeline is separate from the legacy interactive terrain and is built
+from pure values:
+
+- **Opaque units** in `perlin.core`: `WorldCoordinate`, `GridCell`, `Altitude`,
+  `Moisture` and `Latitude`. `Altitude` and `Moisture` clamp to `[0, 1]` at the
+  boundary.
+- **`Noise[A]`** in `perlin.noise`: a function from a world coordinate to a
+  value, with `map`, `fBm`, `ridged`, `warp`, `mix` and `blend` combinators.
+- **`WorldGenerator`** in `perlin.world`: combines continentalness, hills,
+  ridged mountains and domain warping into an altitude field, then samples a
+  separate moisture field. `WorldMap` rows are `LazyList`s, and
+  `generateChunks` realises bounded chunks on demand.
+- **`enum Biome`**: `Ocean`, `Beach`, `Grassland`, `Forest`, `Desert`, `Tundra`,
+  `Mountain` and `SnowPeak`, classified by exhaustive pattern matching over
+  altitude, moisture and latitude.
+- **Determinism**: the same `TerrainParameters` always produces identical
+  samples. There is no unseeded randomness in the map pipeline.
+
+A layer can be composed directly:
+
+```scala
+import perlin.noise.Noise
+import perlin.noise.Noise.*
+
+val perlin = Noise.perlin(42L)
+val terrain = Noise
+  .fBm(perlin, 5)
+  .blend(Noise.ridged(perlin, 4))
+  .map(value => value.pow(1.3))
+```
+
+## Benchmark Results
+
+Measured with `perlin benchmark --width 1024 --height 1024 --octaves 6 --reps 3`
+on a 14-processor machine, after one full warm-up run per strategy:
+
+| Strategy   | Min (ms) | Median (ms) | Min speedup | Median speedup |
+|------------|---------:|------------:|------------:|---------------:|
+| sequential |    793.2 |       825.4 |       1.00x |          1.00x |
+| parallel   |    212.9 |       218.7 |       3.73x |          3.77x |
+| chunked    |    202.7 |       207.9 |       3.91x |          3.97x |
+
+The checksum was identical for all three strategies (`971378.4`), confirming
+that parallelism changes only execution, not the generated world.
 
 ## Installing with Nix
 
@@ -279,22 +423,43 @@ water is deep or shallow. Terrain height comes from four noise layers:
 - **Hills**: local rolling relief
 - **Ridged noise**: sharp mountain crests
 
+The CLI map pipeline uses the exhaustive `Biome` enum instead of palette
+indices: `Ocean`, `Beach`, `Grassland`, `Forest`, `Desert`, `Tundra`,
+`Mountain` and `SnowPeak`. Classification is a pure function of altitude,
+moisture and latitude, and the compiler rejects non-exhaustive matches.
+
 ## Technical Details
 
 ### Scala 3 Architecture
 
+- Opaque domain types for coordinates, grid cells, altitude, moisture and
+  latitude
+- `Noise[A]` as a pure, composable value with `fBm`, `ridged`, `warp` and
+  `blend` combinators
+- Scala 3 `enum`s for input keys and biomes
+- `LazyList` rows and chunked generation so the whole map never has to exist in
+  memory
 - Immutable `case class` value types for HUD snapshots and camera vectors
-- Scala 3 `enum` for input keys
 - Java Swing/AWT interop for windows, timers and graphics
 - Hot rendering loops use primitive `Array`s and `while` loops
 
 ### Noise
 
 - Permutation table with Fisher-Yates shuffle for pseudo-randomness
+- Explicit seeds only; no unseeded `scala.util.Random` in the map pipeline
 - Gradient interpolation with smooth fade curves
 - Octave layering for fractal detail
 - Ridged multifractal noise for mountain ridges
 - Domain warping to break up grid-aligned patterns
+- Masked `mix`/`blend` for combining layers
+
+### Execution Strategies
+
+- `ExecutionStrategy.Sequential`: plain `map`
+- `ExecutionStrategy.Parallel`: `IntStream.parallel`
+- `ExecutionStrategy.Chunked`: `Future` fan-out with a fixed pool sized to the
+  available processors
+- All strategies share the same interface and are checked for output equality
 
 ### Camera and Collision
 
@@ -366,10 +531,28 @@ private val FOV = 70.0             // Field of view in degrees
 val RENDER_DISTANCE = 120          // How far to render (world units)
 ```
 
+## Testing
+
+The test suite uses Munit and lives in `src/test/scala`. It covers:
+
+- hardcoded permutation-table and noise reference vectors
+- gradient smoothness and range properties
+- biome classification table cases
+- seeded determinism and chunk/map equivalence
+- `Noise` composition, blending and warping
+- PNG, ASCII and SVG exporter smoke tests
+- equality of sequential, parallel and chunked generation
+
+```bash
+scala test .
+```
+
 ## Formatting, Linting and Checks
 
 Formatting is configured in `.scalafmt.conf` and linting in `.scalafix.conf`.
-`project.scala` enables SemanticDB and unused-import warnings for Scalafix.
+The Scalafix rules include `DisableSyntax`, `LeakingImplicitClassVal`,
+`NoValInForComprehension` and `OrganizeImports`. `project.scala` enables
+SemanticDB and unused-import warnings for Scalafix.
 
 ```bash
 # format sources
@@ -378,11 +561,11 @@ scalafmt .
 # compile first so Scalafix can find SemanticDB
 scala compile .
 
-# apply OrganizeImports
-scalafix --auto-classpath --scalac-options -Wunused:imports src
+# apply fixes (including import organisation)
+scalafix --auto-classpath --scalac-options -Wunused:imports src/main/scala
 
 # or only verify
-scalafix --auto-classpath --scalac-options -Wunused:imports --check src
+scalafix --auto-classpath --scalac-options -Wunused:imports --check src/main/scala
 ```
 
 Run the full Nix check suite:
@@ -392,6 +575,8 @@ nix flake check
 ```
 
 This compiles the project, runs `scalafmt --test` and runs `scalafix --check`.
+Tests are run separately with `scala test .` because they use a test-scoped
+Munit dependency.
 
 ## Performance Tuning
 
@@ -469,8 +654,8 @@ nix shell nixpkgs#scala_3 nixpkgs#xvfb-run -c xvfb-run -a scala run .
 ## Requirements
 
 - [Nix](https://nixos.org/) with flakes enabled (recommended), or
-- Scala 3.9+ with a JDK 21+ on `PATH` (the Nix shell uses JDK 25)
-- No third-party runtime libraries
+- Scala 3.9+ with a JDK 21+ on `PATH` (the Nix shell uses JDK 21)
+- No third-party runtime libraries; Munit is test-only
 
 ## License
 
