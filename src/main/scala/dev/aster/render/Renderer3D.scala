@@ -24,8 +24,6 @@ import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.awt.event.MouseMotionAdapter
 import java.awt.image.BufferedImage
-import java.awt.image.DataBufferInt
-import java.util.Arrays
 import javax.swing.JPanel
 import javax.swing.Timer
 import scala.collection.mutable
@@ -37,6 +35,8 @@ object Renderer3D {
   private val NEAR_PLANE = 0.5
   private val FAR_PLANE = RENDER_DISTANCE * 2.0
   private val FRAME_DELAY_MS = 16
+  private val DEPTH_BUCKET_COUNT = 65536
+  private val DEPTH_BUCKET_SCALE = (DEPTH_BUCKET_COUNT - 1).toDouble / FAR_PLANE
 
   private val CROSSHAIR_STROKE = new BasicStroke(2.0f)
   private val INSTRUCTIONS_FONT = new Font("Arial", Font.BOLD, 14)
@@ -50,8 +50,8 @@ object Renderer3D {
   * to [[ViewFrustum]]. This class only owns projection and rasterization.
   *
   * The hot frame path is allocation-free: vertices are projected once into reusable primitive
-  * arrays, triangles are packed into primitive arrays and depth-sorted with a primitive
-  * `Array[Long]`, fills use scanline spans and wireframes use Bresenham lines, and the final frame
+  * arrays, triangles are packed into primitive arrays and depth-sorted with a counting sort over
+  * depth buckets, fills use scanline spans and wireframes use Bresenham lines, and the final frame
   * is blitted from one reusable pixel buffer.
   */
 final class Renderer3D(private val terrain: Terrain) extends JPanel with KeyListener {
@@ -91,13 +91,11 @@ final class Renderer3D(private val terrain: Terrain) extends JPanel with KeyList
   private val maxTriangles = maxVertices * 2
   private val triangleVertices = new Array[Int](maxTriangles * 6)
   private val triangleColor = new Array[Byte](maxTriangles)
-  private val triangleDepth = new Array[Float](maxTriangles)
-  private val sortKeys = new Array[Long](maxTriangles)
+  private val triangleBucket = new Array[Int](maxTriangles)
+  private val sortedTriangles = new Array[Int](maxTriangles)
+  private val bucketCounts = new Array[Int](DEPTH_BUCKET_COUNT)
 
-  private var terrainBuffer: BufferedImage = null
-  private var terrainPixels: Array[Int] = null
-  private var bufferWidth = 0
-  private var bufferHeight = 0
+  private val rasterizer = new SoftwareRasterizer
 
   private val frameTimer = new Timer(
     FRAME_DELAY_MS,
@@ -266,8 +264,8 @@ final class Renderer3D(private val terrain: Terrain) extends JPanel with KeyList
     val screenHeight = getHeight
     if (screenWidth <= 0 || screenHeight <= 0) return
 
-    ensureTerrainBuffer(screenWidth, screenHeight)
-    Arrays.fill(terrainPixels, SKY_RGB)
+    rasterizer.ensureSize(screenWidth, screenHeight)
+    rasterizer.clear(SKY_RGB)
 
     val yawRad = Math.toRadians(camera.yaw)
     val pitchRad = Math.toRadians(camera.pitch)
@@ -373,18 +371,12 @@ final class Renderer3D(private val terrain: Terrain) extends JPanel with KeyList
     }
 
     if (triangleCount > 0) {
-      var i = 0
-      while (i < triangleCount) {
-        sortKeys(i) = (java.lang.Float.floatToIntBits(triangleDepth(i)).toLong << 32) |
-          i.toLong
-        i += 1
-      }
-      Arrays.sort(sortKeys, 0, triangleCount)
+      sortTrianglesByDepth(triangleCount)
 
       // Iterate backwards so the farthest triangle is drawn first.
       var k = triangleCount - 1
       while (k >= 0) {
-        val tri = sortKeys(k).toInt
+        val tri = sortedTriangles(k)
         val offset = tri * 6
         val colorIndex = triangleColor(tri).toInt
 
@@ -395,194 +387,52 @@ final class Renderer3D(private val terrain: Terrain) extends JPanel with KeyList
         val x3 = triangleVertices(offset + 4)
         val y3 = triangleVertices(offset + 5)
 
-        fillTriangle(x1, y1, x2, y2, x3, y3, Terrain.rgbForIndex(colorIndex))
+        rasterizer.fillTriangle(x1, y1, x2, y2, x3, y3, Terrain.rgbForIndex(colorIndex))
 
         val wire = Terrain.wireRgbForIndex(colorIndex)
-        drawLine(x1, y1, x2, y2, wire)
-        drawLine(x2, y2, x3, y3, wire)
-        drawLine(x3, y3, x1, y1, wire)
+        rasterizer.drawLine(x1, y1, x2, y2, wire)
+        rasterizer.drawLine(x2, y2, x3, y3, wire)
+        rasterizer.drawLine(x3, y3, x1, y1, wire)
         k -= 1
       }
     }
 
-    g.drawImage(terrainBuffer, 0, 0, null)
+    g.drawImage(rasterizer.image, 0, 0, null)
   }
 
-  private def ensureTerrainBuffer(width: Int, height: Int): Unit = {
-    if (
-      terrainBuffer != null &&
-      bufferWidth == width &&
-      bufferHeight == height
-    ) return
-
-    terrainBuffer = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
-    terrainPixels = terrainBuffer.getRaster.getDataBuffer
-      .asInstanceOf[DataBufferInt]
-      .getData
-    bufferWidth = width
-    bufferHeight = height
-  }
-
-  /** Fills a screen-space triangle using scanline spans. Per row only the two edge intersections
-    * are computed, then the whole span is filled with one Arrays.fill call.
+  /** Counting sort by depth bucket. Buckets are ordered near-to-far, so drawing them backwards
+    * yields painter's-algorithm order without comparison sorting.
     */
-  private def fillTriangle(
-      x1in: Int,
-      y1in: Int,
-      x2in: Int,
-      y2in: Int,
-      x3in: Int,
-      y3in: Int,
-      rgb: Int
-  ): Unit = {
-    var x1 = x1in
-    var y1 = y1in
-    var x2 = x2in
-    var y2 = y2in
-    var x3 = x3in
-    var y3 = y3in
-
-    // Sort the vertices by y so the triangle has a top and bottom half.
-    if (y1 > y2) {
-      var t = x1; x1 = x2; x2 = t
-      t = y1; y1 = y2; y2 = t
-    }
-    if (y2 > y3) {
-      var t = x2; x2 = x3; x3 = t
-      t = y2; y2 = y3; y3 = t
-    }
-    if (y1 > y2) {
-      var t = x1; x1 = x2; x2 = t
-      t = y1; y1 = y2; y2 = t
+  private def sortTrianglesByDepth(triangleCount: Int): Unit = {
+    var bucket = 0
+    while (bucket < DEPTH_BUCKET_COUNT) {
+      bucketCounts(bucket) = 0
+      bucket += 1
     }
 
-    if (y1 == y3 || y3 < 0 || y1 >= bufferHeight) return
-
-    val yStart = Math.max(0, Math.ceil(y1 - 0.5).toInt)
-    val yEnd = Math.min(bufferHeight - 1, Math.floor(y3 - 0.5).toInt)
-    if (yStart > yEnd) return
-
-    val dyTop = y2 - y1
-    val dyBottom = y3 - y2
-    val dyLong = y3 - y1
-    val dxTop = x2 - x1
-    val dxBottom = x3 - x2
-    val dxLong = x3 - x1
-
-    var y = yStart
-    while (y <= yEnd) {
-      val sampleY = y + 0.5
-      val xa =
-        if (sampleY < y2) x1 + (sampleY - y1) * dxTop / dyTop
-        else x2 + (sampleY - y2) * dxBottom / dyBottom
-      var xb = x1 + (sampleY - y1) * dxLong / dyLong
-
-      var left = Math.ceil(xa - 0.5).toInt
-      var right = Math.floor(xb - 0.5).toInt
-
-      if (left > right) {
-        val t = left
-        left = right
-        right = t
-      }
-      if (left < 0) left = 0
-      if (right >= bufferWidth) right = bufferWidth - 1
-
-      if (left <= right) {
-        val rowOffset = y * bufferWidth
-        Arrays.fill(terrainPixels, rowOffset + left, rowOffset + right + 1, rgb)
-      }
-      y += 1
-    }
-  }
-
-  /** Draws a 1px Bresenham line, clipping it to the viewport first. */
-  private def drawLine(
-      x0in: Int,
-      y0in: Int,
-      x1in: Int,
-      y1in: Int,
-      rgb: Int
-  ): Unit = {
-    var x0 = x0in
-    var y0 = y0in
-    var x1 = x1in
-    var y1 = y1in
-
-    var code0 = outCode(x0, y0)
-    var code1 = outCode(x1, y1)
-
-    // Cohen-Sutherland clipping
-    var clipping = true
-    while (clipping) {
-      if ((code0 | code1) == 0) {
-        clipping = false
-      } else if ((code0 & code1) != 0) {
-        return
-      } else {
-        val code = if (code0 != 0) code0 else code1
-        var x = 0.0
-        var y = 0.0
-        if ((code & 4) != 0) {
-          y = 0
-          x = x0 + (x1 - x0).toDouble * (0 - y0) / (y1 - y0)
-        } else if ((code & 8) != 0) {
-          y = bufferHeight - 1
-          x = x0 + (x1 - x0).toDouble * (bufferHeight - 1 - y0) / (y1 - y0)
-        } else if ((code & 1) != 0) {
-          x = 0
-          y = y0 + (y1 - y0).toDouble * (0 - x0) / (x1 - x0)
-        } else {
-          x = bufferWidth - 1
-          y = y0 + (y1 - y0).toDouble * (bufferWidth - 1 - x0) / (x1 - x0)
-        }
-
-        val ix = Math.round(x).toInt
-        val iy = Math.round(y).toInt
-        if (code == code0) {
-          x0 = ix
-          y0 = iy
-          code0 = outCode(x0, y0)
-        } else {
-          x1 = ix
-          y1 = iy
-          code1 = outCode(x1, y1)
-        }
-      }
+    var i = 0
+    while (i < triangleCount) {
+      bucketCounts(triangleBucket(i)) += 1
+      i += 1
     }
 
-    var dx = Math.abs(x1 - x0)
-    val sx = if (x0 < x1) 1 else -1
-    var dy = -Math.abs(y1 - y0)
-    val sy = if (y0 < y1) 1 else -1
-    var err = dx + dy
-
-    var drawing = true
-    while (drawing) {
-      terrainPixels(y0 * bufferWidth + x0) = rgb
-      if (x0 == x1 && y0 == y1) {
-        drawing = false
-      } else {
-        val e2 = err << 1
-        if (e2 >= dy) {
-          err += dy
-          x0 += sx
-        }
-        if (e2 <= dx) {
-          err += dx
-          y0 += sy
-        }
-      }
+    var offset = 0
+    bucket = 0
+    while (bucket < DEPTH_BUCKET_COUNT) {
+      val count = bucketCounts(bucket)
+      bucketCounts(bucket) = offset
+      offset += count
+      bucket += 1
     }
-  }
 
-  private def outCode(x: Int, y: Int): Int = {
-    var code = 0
-    if (x < 0) code |= 1
-    else if (x >= bufferWidth) code |= 2
-    if (y < 0) code |= 4
-    else if (y >= bufferHeight) code |= 8
-    code
+    i = 0
+    while (i < triangleCount) {
+      val bucketIndex = triangleBucket(i)
+      val position = bucketCounts(bucketIndex)
+      sortedTriangles(position) = i
+      bucketCounts(bucketIndex) = position + 1
+      i += 1
+    }
   }
 
   /** Stores one projected triangle, first rejecting it when its screen-space bounding box does not
@@ -633,7 +483,11 @@ final class Renderer3D(private val terrain: Terrain) extends JPanel with KeyList
     triangleVertices(offset + 4) = x3
     triangleVertices(offset + 5) = y3
 
-    triangleDepth(count) = (vertexDepth(i1) + vertexDepth(i2) + vertexDepth(i3)) / 3.0f
+    val depth = (vertexDepth(i1) + vertexDepth(i2) + vertexDepth(i3)) / 3.0f
+    var bucket = (depth * DEPTH_BUCKET_SCALE).toInt
+    if (bucket < 0) bucket = 0
+    else if (bucket >= DEPTH_BUCKET_COUNT) bucket = DEPTH_BUCKET_COUNT - 1
+    triangleBucket(count) = bucket
 
     // Pick a majority surface color among the corners so biome borders do not
     // create a directional grid pattern.

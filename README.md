@@ -77,7 +77,7 @@ featuring a **first-person immersive experience**, implemented in **Scala 3**
 ├── .scalafix.conf             - Scalafix rules (OrganizeImports)
 ├── flake.nix                  - Nix dev shell, package, app and checks
 ├── flake.lock
-└── src/dev/aster/
+└── src/main/scala/dev/aster/
     ├── app/
     │   └── Main.scala         - Application entry point and GUI setup
     ├── noise/
@@ -88,14 +88,16 @@ featuring a **first-person immersive experience**, implemented in **Scala 3**
     │   ├── Camera.scala       - First-person camera with WASD + mouse look
     │   └── CollisionDetector.scala - Terrain collision and camera constraints
     ├── render/
-    │   ├── Renderer3D.scala   - Projection, software rasterizer and frame loop
+    │   ├── Renderer3D.scala   - Projection, culling, painter ordering and frame loop
+    │   ├── SoftwareRasterizer.scala - Pixel buffer, scanline fills and wireframe lines
     │   └── ViewFrustum.scala  - Camera frustum helpers
     └── ui/
         └── HeadsUpDisplay.scala - HUD rendering with stats and local mini-map
 ```
 
-Each concern lives in its own package (`app`, `noise`, `terrain`, `camera`,
-`render`, `ui`). scala-cli discovers the sources and compiles them together.
+Sources use the standard scala-cli/sbt layout (`src/main/scala`). Each concern
+lives in its own package (`app`, `noise`, `terrain`, `camera`, `render`, `ui`),
+and the pixel-level rasterizer is kept separate from the projection/scene code.
 
 ## Running
 
@@ -206,16 +208,16 @@ From a local checkout, `nix profile install .` installs the same package.
 
 ## Controls
 
-| Input              | Action                                   |
-| ------------------ | ---------------------------------------- |
-| **W**              | Move forward                             |
-| **S**              | Move backward                            |
-| **A**              | Strafe left                              |
-| **D**              | Strafe right                             |
-| **Q**              | Ascend                                   |
-| **E**              | Descend                                  |
-| **Mouse Movement** | Look around / rotate camera              |
-| **Esc**            | Release captured mouse                   |
+| Input              | Action                                     |
+|--------------------|--------------------------------------------|
+| **W**              | Move forward                               |
+| **S**              | Move backward                              |
+| **A**              | Strafe left                                |
+| **D**              | Strafe right                               |
+| **Q**              | Ascend                                     |
+| **E**              | Descend                                    |
+| **Mouse Movement** | Look around / rotate camera                |
+| **Esc**            | Release captured mouse                     |
 | **Button Click**   | Generate a new world with a different seed |
 
 Click the viewport to capture the mouse. The crosshair marks the view center.
@@ -322,7 +324,7 @@ water is deep or shallow. Terrain height comes from four noise layers:
 
 ### Seed
 
-Choose a seed in `src/dev/aster/app/Main.scala`:
+Choose a seed in `src/main/scala/dev/aster/app/Main.scala`:
 
 ```scala
 val seed = System.currentTimeMillis()
@@ -331,7 +333,7 @@ val terrain = new Terrain(seed)
 
 ### World Generation
 
-The interesting worldgen lives in `src/dev/aster/terrain/Terrain.scala`:
+The interesting worldgen lives in `src/main/scala/dev/aster/terrain/Terrain.scala`:
 
 ```scala
 private val CHUNK_SIZE = 16        // Height samples per chunk edge
@@ -346,7 +348,7 @@ and `ridge` to make the world flatter, more mountainous, or more island-like.
 
 ### Camera
 
-Edit `src/dev/aster/camera/Camera.scala`:
+Edit `src/main/scala/dev/aster/camera/Camera.scala`:
 
 ```scala
 private val MOVEMENT_SPEED = 1.2      // Units per frame
@@ -356,7 +358,7 @@ private val MOUSE_SENSITIVITY = 0.15  // Degrees per pixel
 
 ### Rendering
 
-Edit `src/dev/aster/render/Renderer3D.scala`:
+Edit `src/main/scala/dev/aster/render/Renderer3D.scala`:
 
 ```scala
 private val FOV = 70.0             // Field of view in degrees

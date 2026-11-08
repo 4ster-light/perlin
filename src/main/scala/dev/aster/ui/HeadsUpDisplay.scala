@@ -169,7 +169,7 @@ final class HeadsUpDisplay {
   }
 
   private def format1(value: Double): String =
-    java.lang.String.format("%.1f", java.lang.Double.valueOf(value))
+    "%.1f".format(value)
 
   private def ensureMiniMap(terrain: Terrain, centerX: Double, centerY: Double): Unit = {
     if (

@@ -1,6 +1,6 @@
 package dev.aster.noise
 
-import java.util.Random
+import scala.util.Random
 
 /** Classic 2D Perlin noise with a seeded permutation table. */
 final class PerlinNoise(seed: Long) {

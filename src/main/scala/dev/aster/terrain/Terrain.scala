@@ -3,8 +3,7 @@ package dev.aster.terrain
 import dev.aster.noise.PerlinNoise
 
 import java.awt.Color
-import java.util.LinkedHashMap
-import java.util.{Map => JMap}
+import scala.collection.mutable
 
 object Terrain {
 
@@ -72,15 +71,9 @@ final class Terrain(val seed: Long) {
 
   private val noise = new PerlinNoise(seed)
 
-  // Access-order LRU cache. Generation is deterministic, so evicted chunks are
-  // simply regenerated when the player returns.
-  private val chunks: LinkedHashMap[java.lang.Long, Chunk] =
-    new LinkedHashMap[java.lang.Long, Chunk](512, 0.75f, true) {
-      override protected def removeEldestEntry(
-          eldest: JMap.Entry[java.lang.Long, Chunk]
-      ): Boolean =
-        size() > MAX_CACHED_CHUNKS
-    }
+  // LRU cache. scala.collection.mutable.LinkedHashMap preserves insertion
+  // order; cache hits are moved to the end and the oldest entry is evicted.
+  private val chunks = mutable.LinkedHashMap.empty[Long, Chunk]
 
   // Small last-chunk cache: the renderer walks one chunk column at a time, so
   // this turns almost all per-vertex lookups into direct array accesses.
@@ -116,8 +109,9 @@ final class Terrain(val seed: Long) {
       var cy = chunkY0
       while (cy <= chunkY1) {
         val cacheKey = key(cx, cy)
-        if (chunks.get(cacheKey) == null) {
-          chunks.put(cacheKey, generateChunk(cx, cy))
+        chunks.get(cacheKey) match {
+          case Some(chunk) => touch(cacheKey, chunk)
+          case None        => cacheChunk(cacheKey, generateChunk(cx, cy))
         }
         cy += 1
       }
@@ -186,10 +180,14 @@ final class Terrain(val seed: Long) {
     }
 
     val cacheKey = key(chunkX, chunkY)
-    var chunk = chunks.get(cacheKey)
-    if (chunk == null) {
-      chunk = generateChunk(chunkX, chunkY)
-      chunks.put(cacheKey, chunk)
+    val chunk = chunks.get(cacheKey) match {
+      case Some(existing) =>
+        touch(cacheKey, existing)
+        existing
+      case None =>
+        val generated = generateChunk(chunkX, chunkY)
+        cacheChunk(cacheKey, generated)
+        generated
     }
 
     lastChunkX = chunkX
@@ -225,7 +223,19 @@ final class Terrain(val seed: Long) {
   private def index(x: Int, y: Int): Int =
     (x & CHUNK_MASK) * CHUNK_SIZE + (y & CHUNK_MASK)
 
-  private def key(chunkX: Int, chunkY: Int): java.lang.Long =
+  private def cacheChunk(cacheKey: Long, chunk: Chunk): Unit = {
+    chunks.put(cacheKey, chunk)
+    if (chunks.size > MAX_CACHED_CHUNKS) {
+      chunks.remove(chunks.head._1)
+    }
+  }
+
+  private def touch(cacheKey: Long, chunk: Chunk): Unit = {
+    chunks.remove(cacheKey)
+    chunks.put(cacheKey, chunk)
+  }
+
+  private def key(chunkX: Int, chunkY: Int): Long =
     (chunkX.toLong << 32) ^ (chunkY.toLong & 0xffffffffL)
 
   /** The world height function. All fields are deterministic functions of world coordinates, which
