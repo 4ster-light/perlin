@@ -4,7 +4,7 @@ An infinite 3D procedural landscape generated with Perlin and ridged noise,
 featuring a **first-person immersive experience**, implemented in **Scala 3**
 (Swing/AWT) with real-time software 3D visualization.
 
-The same generator is available as a dependency-free command-line tool that
+The same generator is available as a Decline-powered command-line tool that
 exports seeded PNG maps, ANSI-coloured ASCII, and layered SVG contours.
 
 ![Showcase Image](./Showcase.png)
@@ -21,8 +21,9 @@ exports seeded PNG maps, ANSI-coloured ASCII, and layered SVG contours.
   `scala`, so no separate `scala-cli` package is required.
 - **Nix flake**: dev shell, package, app and checks
 - **Scalafmt + Scalafix**: shared formatting/config and an automated lint check
-- **JDK Swing/AWT + `javax.imageio` only** at runtime - no third-party runtime
-  libraries
+- **Hand-written graphics**: Swing/AWT and `javax.imageio` stay JDK-only
+- **Decline CLI**: typed options, subcommands and library-quality help output
+  (Cats is pulled in transitively by Decline)
 - **Munit tests**: noise reference vectors, smoothness properties, biome tables,
   determinism, exporters and execution strategies
 
@@ -109,6 +110,8 @@ exports seeded PNG maps, ANSI-coloured ASCII, and layered SVG contours.
 ├── .scalafix.conf             - Scalafix rules (DisableSyntax, imports, for-comprehensions)
 ├── flake.nix                  - Nix dev shell, package, app and checks
 ├── flake.lock
+├── scripts/
+│   └── check.sh               - compile + format + Scalafix + test check
 ├── docs/
 │   └── example-map.png        - example CLI-generated map
 ├── src/main/scala/perlin/
@@ -259,9 +262,11 @@ nix run . -- render --seed 42 --width 1024 --height 1024 --output map.png
 ./result/bin/perlin-landscape benchmark --width 1024 --height 1024
 ```
 
-The CLI is intentionally dependency-free: a small parser in `perlin.cli` handles
-subcommands and `--key value` / `--key=value` options, keeping the runtime free
-of third-party libraries.
+The CLI is built with [Decline](https://monovore.com/decline/), so subcommands,
+typed option parsing, validation errors and `--help` output come from the
+library rather than a hand-written parser. Cats is pulled in transitively by
+Decline. The renderer, terrain code and exporters remain hand-written on JDK
+APIs.
 
 ## Map Generation Pipeline
 
@@ -554,18 +559,36 @@ The Scalafix rules include `DisableSyntax`, `LeakingImplicitClassVal`,
 `NoValInForComprehension` and `OrganizeImports`. `project.scala` enables
 SemanticDB, unused-import warnings, `-Werror` and Scalafix metadata.
 
+`scala fmt` is a wrapper around Scalafmt, so it is fine for everyday formatting.
+The flake still pins the standalone `scalafmt` binary so `nix flake check` can
+format-check without downloading the formatter inside the sandbox. Scalafix is a
+separate tool, not part of the Scala runner; it needs SemanticDB from a prior
+compile and an explicit `--scala-version`, otherwise it parses Scala 3 sources as
+Scala 2 and fails.
+
 ```bash
-# format sources
+# format sources (either works)
+scala fmt .
 scalafmt .
 
 # compile first so Scalafix can find SemanticDB
 scala compile .
 
 # apply fixes (including import organisation)
-scalafix --auto-classpath --scalac-options -Wunused:imports src/main/scala
+scalafix --auto-classpath --scalac-options -Wunused:imports \
+  --scala-version 3.9.0 src/main/scala
 
 # or only verify
-scalafix --auto-classpath --scalac-options -Wunused:imports --check src/main/scala
+scalafix --auto-classpath --scalac-options -Wunused:imports \
+  --scala-version 3.9.0 --check src/main/scala
+```
+
+The helper script runs the whole local check:
+
+```bash
+./scripts/check.sh
+# or, inside the Nix shell:
+nix develop -c ./scripts/check.sh
 ```
 
 Run the full Nix check suite:
@@ -655,7 +678,8 @@ nix shell nixpkgs#scala_3 nixpkgs#xvfb-run -c xvfb-run -a scala run .
 
 - [Nix](https://nixos.org/) with flakes enabled (recommended), or
 - Scala 3.9+ with a JDK 21+ on `PATH` (the Nix shell uses JDK 21)
-- No third-party runtime libraries; Munit is test-only
+- Runtime dependencies are limited to Decline/Cats for the CLI; Munit is
+  test-only, and the renderer/exporters use JDK APIs
 
 ## License
 
