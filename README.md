@@ -552,7 +552,7 @@ scala test .
 Formatting is configured in `.scalafmt.conf` and linting in `.scalafix.conf`.
 The Scalafix rules include `DisableSyntax`, `LeakingImplicitClassVal`,
 `NoValInForComprehension` and `OrganizeImports`. `project.scala` enables
-SemanticDB and unused-import warnings for Scalafix.
+SemanticDB, unused-import warnings, `-Werror` and Scalafix metadata.
 
 ```bash
 # format sources
