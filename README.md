@@ -75,7 +75,7 @@ now featuring a **first-person immersive experience**, implemented in **Scala 3*
 ```plaintext
 .
 ├── project.scala              - scala-cli directives (Scala 3.9, main class)
-├── run.sh                     - compile and launch helper
+├── .scalafmt.conf             - shared Scalafmt configuration
 ├── flake.nix                  - Nix dev shell, package and app
 └── src/dev/aster/
     ├── app/
@@ -105,19 +105,26 @@ Each concern lives in its own package (`app`, `noise`, `terrain`, `camera`,
 
 ### With Nix (recommended)
 
-The flake provides the Scala 3 compiler and a JDK:
+The flake provides Scala 3, `scala-cli` and JDK 25:
 
 ```bash
-nix develop -c ./run.sh
+nix develop
+scala run .
 ```
 
-Or without entering a shell:
+Or in one command without entering the shell:
 
 ```bash
-nix shell nixpkgs#scala_3 -c ./run.sh
+nix develop -c scala run .
 ```
 
-Build a standalone launcher:
+If you already have Scala tooling, the Nix shell can provide just the compiler:
+
+```bash
+nix shell nixpkgs#scala_3 -c scala run .
+```
+
+Build a self-contained launcher (scala-cli assembly JAR wrapped with `java`):
 
 ```bash
 nix build
@@ -126,16 +133,19 @@ nix build
 
 ### With Scala already installed
 
-Requires Scala 3.9+ and a JDK 21+:
+Requires Scala 3.9+ and JDK 21+:
 
 ```bash
-./run.sh
-# or:
 scala run .
 ```
 
-`run.sh` uses `scala-cli` with `--server=false`, so no background build server
-is left running.
+The Scala version, compiler options and main class live in `project.scala`, so
+there is no separate build script to maintain. Formatting is configured in
+`.scalafmt.conf`:
+
+```bash
+scalafmt .
+```
 
 ## Controls
 
@@ -262,7 +272,7 @@ public static final int RENDER_DISTANCE = 120;   // World units
 ## Requirements
 
 - [Nix](https://nixos.org/) with flakes enabled (recommended), or
-- Scala 3.9+ with a JDK 21+ on `PATH`
+- Scala 3.9+ with a JDK 21+ on `PATH` (the Nix shell uses JDK 25)
 - No third-party runtime libraries
 
 ## System Requirements

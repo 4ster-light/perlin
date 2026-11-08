@@ -51,14 +51,13 @@ object HeadsUpDisplay {
     "WASD: Move | Mouse: Look | Q/E: Up/Down | Regen: Generate New Terrain"
 }
 
-/**
- * Heads-up display showing player stats and a local mini-map.
- *
- * The mini-map shows a local window around the player. It is rebuilt only when
- * the player moves far enough to matter, then blitted every frame. Fonts and
- * font metrics are cached for the same reason: the HUD is repainted at the game
- * loop rate and should not allocate or re-rasterize static artwork.
- */
+/** Heads-up display showing player stats and a local mini-map.
+  *
+  * The mini-map shows a local window around the player. It is rebuilt only when the player moves
+  * far enough to matter, then blitted every frame. Fonts and font metrics are cached for the same
+  * reason: the HUD is repainted at the game loop rate and should not allocate or re-rasterize
+  * static artwork.
+  */
 final class HeadsUpDisplay {
 
   import HeadsUpDisplay.*

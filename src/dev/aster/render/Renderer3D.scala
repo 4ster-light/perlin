@@ -42,22 +42,19 @@ object Renderer3D {
   private val CROSSHAIR_STROKE = new BasicStroke(2.0f)
   private val INSTRUCTIONS_FONT = new Font("Arial", Font.BOLD, 14)
   private val INSTRUCTIONS_BACKGROUND = new Color(0, 0, 0, 180)
-  private val SKY_RGB = 0x87CEEB // (135, 206, 235)
+  private val SKY_RGB = 0x87ceeb // (135, 206, 235)
 }
 
-/**
- * Software-rendered first-person terrain view with mouse look and WASD movement.
- *
- * Movement and collision are delegated to [[Camera]] and
- * [[CollisionDetector]]; visibility culling to [[ViewFrustum]]. This class only
- * owns projection and rasterization.
- *
- * The hot frame path is allocation-free: vertices are projected once into
- * reusable primitive arrays, triangles are packed into primitive arrays and
- * depth-sorted with a primitive `Array[Long]`, fills use scanline spans and
- * wireframes use Bresenham lines, and the final frame is blitted from one
- * reusable pixel buffer.
- */
+/** Software-rendered first-person terrain view with mouse look and WASD movement.
+  *
+  * Movement and collision are delegated to [[Camera]] and [[CollisionDetector]]; visibility culling
+  * to [[ViewFrustum]]. This class only owns projection and rasterization.
+  *
+  * The hot frame path is allocation-free: vertices are projected once into reusable primitive
+  * arrays, triangles are packed into primitive arrays and depth-sorted with a primitive
+  * `Array[Long]`, fills use scanline spans and wireframes use Bresenham lines, and the final frame
+  * is blitted from one reusable pixel buffer.
+  */
 final class Renderer3D(private val terrain: Terrain) extends JPanel with KeyListener {
 
   import Renderer3D.*
@@ -362,16 +359,14 @@ final class Renderer3D(private val terrain: Terrain) extends JPanel with KeyList
       while (row < regionHeight - 1) {
         val i1 = col + row * stride
         val i2 = i1 + stride // (gx + 1, gy)
-        val i3 = i1 + 1      // (gx, gy + 1)
-        val i4 = i2 + 1      // (gx + 1, gy + 1)
+        val i3 = i1 + 1 // (gx, gy + 1)
+        val i4 = i2 + 1 // (gx + 1, gy + 1)
 
         if (vertexValid(i1) && vertexValid(i2) && vertexValid(i3)) {
-          triangleCount =
-            addTriangle(triangleCount, i1, i2, i3, screenWidth, screenHeight)
+          triangleCount = addTriangle(triangleCount, i1, i2, i3, screenWidth, screenHeight)
         }
         if (vertexValid(i2) && vertexValid(i4) && vertexValid(i3)) {
-          triangleCount =
-            addTriangle(triangleCount, i2, i4, i3, screenWidth, screenHeight)
+          triangleCount = addTriangle(triangleCount, i2, i4, i3, screenWidth, screenHeight)
         }
         row += 1
       }
@@ -381,9 +376,8 @@ final class Renderer3D(private val terrain: Terrain) extends JPanel with KeyList
     if (triangleCount > 0) {
       var i = 0
       while (i < triangleCount) {
-        sortKeys(i) =
-          (java.lang.Float.floatToIntBits(triangleDepth(i)).toLong << 32) |
-            i.toLong
+        sortKeys(i) = (java.lang.Float.floatToIntBits(triangleDepth(i)).toLong << 32) |
+          i.toLong
         i += 1
       }
       Arrays.sort(sortKeys, 0, triangleCount)
@@ -430,11 +424,9 @@ final class Renderer3D(private val terrain: Terrain) extends JPanel with KeyList
     bufferHeight = height
   }
 
-  /**
-   * Fills a screen-space triangle using scanline spans. Per row only the two
-   * edge intersections are computed, then the whole span is filled with one
-   * Arrays.fill call.
-   */
+  /** Fills a screen-space triangle using scanline spans. Per row only the two edge intersections
+    * are computed, then the whole span is filled with one Arrays.fill call.
+    */
   private def fillTriangle(
       x1in: Int,
       y1in: Int,
@@ -594,12 +586,12 @@ final class Renderer3D(private val terrain: Terrain) extends JPanel with KeyList
     code
   }
 
-  /**
-   * Stores one projected triangle, first rejecting it when its screen-space
-   * bounding box does not overlap the viewport.
-   *
-   * @return the new triangle count
-   */
+  /** Stores one projected triangle, first rejecting it when its screen-space bounding box does not
+    * overlap the viewport.
+    *
+    * @return
+    *   the new triangle count
+    */
   private def addTriangle(
       count: Int,
       i1: Int,
@@ -642,8 +634,7 @@ final class Renderer3D(private val terrain: Terrain) extends JPanel with KeyList
     triangleVertices(offset + 4) = x3
     triangleVertices(offset + 5) = y3
 
-    triangleDepth(count) =
-      (vertexDepth(i1) + vertexDepth(i2) + vertexDepth(i3)) / 3.0f
+    triangleDepth(count) = (vertexDepth(i1) + vertexDepth(i2) + vertexDepth(i3)) / 3.0f
 
     // Pick a majority surface color among the corners so biome borders do not
     // create a directional grid pattern.

@@ -5,14 +5,7 @@ import dev.aster.terrain.Terrain
 
 import java.awt.{BorderLayout, Color, FlowLayout, Font}
 import java.awt.event.{ActionListener, MouseAdapter, MouseEvent}
-import javax.swing.{
-  BorderFactory,
-  JButton,
-  JFrame,
-  JLabel,
-  JPanel,
-  SwingUtilities
-}
+import javax.swing.{BorderFactory, JButton, JFrame, JLabel, JPanel, SwingUtilities}
 
 /** Entry point: builds the window, the initial world and the control bar. */
 object Main {

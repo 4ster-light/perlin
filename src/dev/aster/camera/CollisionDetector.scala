@@ -8,11 +8,11 @@ final class CollisionDetector(private val terrain: Terrain) {
   private val CAMERA_HEIGHT = 3.0
   private val WORLD_LIMIT = 1_000_000.0 // numeric safety net only
 
-  /**
-   * Check and adjust camera position to prevent clipping through terrain.
-   *
-   * @return true if a collision occurred and the camera was pushed up
-   */
+  /** Check and adjust camera position to prevent clipping through terrain.
+    *
+    * @return
+    *   true if a collision occurred and the camera was pushed up
+    */
   def adjustCameraPosition(camera: Camera): Boolean = {
     val terrainHeight = getTerrainHeightAtPosition(camera.x, camera.y)
     val minCameraZ = terrainHeight + CAMERA_HEIGHT
@@ -45,10 +45,9 @@ final class CollisionDetector(private val terrain: Terrain) {
     h0 * (1 - yFrac) + h1 * yFrac
   }
 
-  /**
-   * The world is infinite; this only guards against absurd coordinates that
-   * could destabilize the projection math.
-   */
+  /** The world is infinite; this only guards against absurd coordinates that could destabilize the
+    * projection math.
+    */
   def clampCameraPosition(camera: Camera): Unit = {
     camera.x = Math.clamp(camera.x, -WORLD_LIMIT, WORLD_LIMIT)
     camera.y = Math.clamp(camera.y, -WORLD_LIMIT, WORLD_LIMIT)

@@ -1,77 +1,67 @@
 {
   description = "Infinite procedural landscape in Scala/Swing";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+  inputs = {
+    flake-utils.url = "github:numtide/flake-utils";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+  };
 
   outputs =
-    { self, nixpkgs }:
-    let
-      systems = [
-        "x86_64-linux"
-        "aarch64-linux"
-        "x86_64-darwin"
-        "aarch64-darwin"
-      ];
-      forAllSystems =
-        f:
-        nixpkgs.lib.genAttrs systems (
-          system: f nixpkgs.legacyPackages.${system}
-        );
-    in
-    {
-      devShells = forAllSystems (pkgs: {
-        default = pkgs.mkShell {
+    { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+        scala = pkgs.scala_3;
+        jdk = pkgs.jdk25;
+      in
+      {
+        devShells.default = pkgs.mkShell {
           packages = [
-            pkgs.scala_3
-            pkgs.jdk
+            scala
+            jdk
+            pkgs.scalafmt
           ];
         };
-      });
 
-      packages = forAllSystems (
-        pkgs:
-        let
-          scala = pkgs.scala_3;
-          scalaBare = scala.bare;
-          scalaVersion = scala.version;
-          scala3Library = "${scalaBare}/maven2/org/scala-lang/scala3-library_3/${scalaVersion}/scala3-library_3-${scalaVersion}.jar";
-          scalaLibrary = "${scalaBare}/maven2/org/scala-lang/scala-library/${scalaVersion}/scala-library-${scalaVersion}.jar";
-        in
-        {
-          default = pkgs.stdenv.mkDerivation {
-            pname = "perlin-landscape";
-            version = "0.1.0";
-            src = self;
+        packages.default = pkgs.stdenv.mkDerivation {
+          pname = "perlin-landscape";
+          version = "0.1.0";
+          src = self;
 
-            nativeBuildInputs = [
-              scala
-              pkgs.jdk
-              pkgs.makeWrapper
-            ];
+          nativeBuildInputs = [
+            scala
+            jdk
+            pkgs.makeWrapper
+          ];
 
-            buildPhase = ''
-              mkdir -p build
-              scalac -deprecation -feature -d build $(find src -name '*.scala' -print)
-            '';
+          # Let scala-cli resolve the Scala version and main class from
+          # project.scala, compile the sources, and produce a self-contained
+          # runnable assembly JAR.
+          buildPhase = ''
+            scala --power package . \
+              --assembly \
+              --server=false \
+              --offline \
+              --force \
+              -o perlin-landscape.jar
+          '';
 
-            installPhase = ''
-              mkdir -p $out/share/perlin-landscape $out/bin
-              cp -r build/* $out/share/perlin-landscape/
-              makeWrapper ${pkgs.jdk}/bin/java $out/bin/perlin-landscape \
-                --add-flags "-cp $out/share/perlin-landscape:${scala3Library}:${scalaLibrary} dev.aster.app.Main"
-            '';
+          installPhase = ''
+            mkdir -p $out/share/perlin-landscape $out/bin
+            cp perlin-landscape.jar $out/share/perlin-landscape/
+            makeWrapper ${jdk}/bin/java $out/bin/perlin-landscape \
+              --add-flags "-jar $out/share/perlin-landscape/perlin-landscape.jar"
+          '';
 
-            meta.mainProgram = "perlin-landscape";
-          };
-        }
-      );
+          meta.mainProgram = "perlin-landscape";
+        };
 
-      apps = forAllSystems (pkgs: {
-        default = {
+        apps.default = {
           type = "app";
-          program = "${self.packages.${pkgs.stdenv.hostPlatform.system}.default}/bin/perlin-landscape";
+          program = "${self.packages.${system}.default}/bin/perlin-landscape";
           meta.description = "Run the infinite procedural landscape";
         };
-      });
-    };
+      }
+    );
 }

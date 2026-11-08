@@ -32,13 +32,12 @@ final class Camera(
   private var upHeld = false
   private var downHeld = false
 
-  /**
-   * Update camera position based on input state.
-   *
-   * Movement follows the forward vector (sin yaw, cos yaw) and the right
-   * vector (cos yaw, -sin yaw), so WASD always moves relative to where the
-   * camera is looking (yaw only, pitch is ignored for movement).
-   */
+  /** Update camera position based on input state.
+    *
+    * Movement follows the forward vector (sin yaw, cos yaw) and the right vector (cos yaw, -sin
+    * yaw), so WASD always moves relative to where the camera is looking (yaw only, pitch is ignored
+    * for movement).
+    */
   def update(): Unit = {
     val radYaw = Math.toRadians(yaw)
     val forwardX = Math.sin(radYaw)
@@ -80,12 +79,11 @@ final class Camera(
     case InputKey.DOWN     => downHeld = pressed
   }
 
-  /**
-   * Update camera rotation based on mouse movement.
-   *
-   * Yaw follows the demo's convention: yaw 0 looks along +Y and moving the
-   * mouse right increases yaw (turning toward +X).
-   */
+  /** Update camera rotation based on mouse movement.
+    *
+    * Yaw follows the demo's convention: yaw 0 looks along +Y and moving the mouse right increases
+    * yaw (turning toward +X).
+    */
   def rotate(deltaX: Double, deltaY: Double): Unit = {
     yaw += deltaX * MOUSE_SENSITIVITY
     pitch -= deltaY * MOUSE_SENSITIVITY

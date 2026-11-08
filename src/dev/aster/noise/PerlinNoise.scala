@@ -79,11 +79,11 @@ final class PerlinNoise(seed: Long) {
   def octaveNoise(x: Double, y: Double, octaves: Int): Double =
     octaveNoise(x, y, octaves, 0.5)
 
-  /**
-   * Ridged multifractal noise, useful for mountain crests and sharp valleys.
-   *
-   * @return normalized value roughly between 0 and 1
-   */
+  /** Ridged multifractal noise, useful for mountain crests and sharp valleys.
+    *
+    * @return
+    *   normalized value roughly between 0 and 1
+    */
   def ridgedNoise(x: Double, y: Double, octaves: Int, persistence: Double): Double = {
     var total = 0.0
     var frequency = 1.0

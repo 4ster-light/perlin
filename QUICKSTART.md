@@ -3,25 +3,27 @@
 ## Running the Application
 
 The project is written in Scala 3 and uses `scala-cli`, so there is no Gradle or
-Maven build. With Nix, the compiler and JDK are provided for you:
+Maven build. With Nix, Scala and JDK 25 are provided for you:
 
 ```bash
-nix develop -c ./run.sh
+nix develop
+scala run .
 ```
 
-Without entering a dev shell:
+Or in one command:
 
 ```bash
-nix shell nixpkgs#scala_3 -c ./run.sh
+nix develop -c scala run .
 ```
 
 If Scala 3.9+ and a JDK 21+ are already installed:
 
 ```bash
-./run.sh
-# or
 scala run .
 ```
+
+The Scala version, compiler options and main class are declared in
+`project.scala`; `scala run .` needs no other build script.
 
 To build a standalone launcher:
 
@@ -179,10 +181,17 @@ val RENDER_DISTANCE = 120          // How far to render (world units)
 `scala-cli` recompiles changed sources automatically. Just relaunch:
 
 ```bash
-nix develop -c ./run.sh
+nix develop -c scala run .
+# or, inside `nix develop`:
+scala run .
 ```
 
 The Scala build cache is stored in `.scala-build/` and is ignored by git.
+Formatting is configured in `.scalafmt.conf`:
+
+```bash
+scalafmt .
+```
 
 ## Tips for Exploration
 
@@ -228,7 +237,7 @@ The Scala build cache is stored in `.scala-build/` and is ignored by git.
 
 ```bash
 # Enter the Nix dev shell and launch from there
-nix develop -c ./run.sh
+nix develop -c scala run .
 
 # Or build and run the packaged launcher
 nix build
@@ -247,7 +256,7 @@ scala compile .
 On a headless machine, run the GUI under Xvfb:
 
 ```bash
-nix shell nixpkgs#xvfb-run -c xvfb-run -a ./run.sh
+nix shell nixpkgs#scala_3 nixpkgs#xvfb-run -c xvfb-run -a scala run .
 ```
 
 ### No terrain visible

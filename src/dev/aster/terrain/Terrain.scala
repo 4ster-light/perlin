@@ -9,20 +9,20 @@ object Terrain {
 
   // Surface palette indices (order is shared by the renderer and HUD).
   private val SURFACE_COLORS = Array(
-    new Color(30, 80, 180),   // 0 deep water
-    new Color(60, 120, 200),  // 1 shallow water
+    new Color(30, 80, 180), // 0 deep water
+    new Color(60, 120, 200), // 1 shallow water
     new Color(214, 190, 145), // 2 beach sand
     new Color(222, 204, 145), // 3 desert sand
-    new Color(96, 160, 74),   // 4 grassland
-    new Color(40, 105, 48),   // 5 forest
-    new Color(160, 165, 82),  // 6 savanna
-    new Color(139, 90, 43),   // 7 rock
-    new Color(245, 247, 255)  // 8 snow
+    new Color(96, 160, 74), // 4 grassland
+    new Color(40, 105, 48), // 5 forest
+    new Color(160, 165, 82), // 6 savanna
+    new Color(139, 90, 43), // 7 rock
+    new Color(245, 247, 255) // 8 snow
   )
 
   private val WIRE_COLORS = SURFACE_COLORS.map(_.darker)
-  private val SURFACE_RGB = SURFACE_COLORS.map(_.getRGB & 0xFFFFFF)
-  private val WIRE_RGB = WIRE_COLORS.map(_.getRGB & 0xFFFFFF)
+  private val SURFACE_RGB = SURFACE_COLORS.map(_.getRGB & 0xffffff)
+  private val WIRE_RGB = WIRE_COLORS.map(_.getRGB & 0xffffff)
 
   private val CHUNK_SIZE = 16
   private val CHUNK_SHIFT = 4
@@ -52,21 +52,19 @@ object Terrain {
   }
 }
 
-/**
- * Infinite, lazily generated height-map terrain.
- *
- * The world is split into chunks of 16x16 height samples. A chunk is generated
- * on first access and kept in a small LRU cache, so the world can extend
- * forever without ever materializing the whole map. Terrain is a pure function
- * of world coordinates and the seed, so the same location always produces the
- * same height and surface color.
- *
- * Generation combines domain-warped continentalness, erosion, rolling hills,
- * ridged multifractal mountains and temperature/moisture-based biomes.
- *
- * Instances are intended to be used from a single thread after construction.
- * Build and preload a new instance on a worker thread, then hand it to the EDT.
- */
+/** Infinite, lazily generated height-map terrain.
+  *
+  * The world is split into chunks of 16x16 height samples. A chunk is generated on first access and
+  * kept in a small LRU cache, so the world can extend forever without ever materializing the whole
+  * map. Terrain is a pure function of world coordinates and the seed, so the same location always
+  * produces the same height and surface color.
+  *
+  * Generation combines domain-warped continentalness, erosion, rolling hills, ridged multifractal
+  * mountains and temperature/moisture-based biomes.
+  *
+  * Instances are intended to be used from a single thread after construction. Build and preload a
+  * new instance on a worker thread, then hand it to the EDT.
+  */
 final class Terrain(val seed: Long) {
 
   import Terrain.*
@@ -103,10 +101,9 @@ final class Terrain(val seed: Long) {
   def colorIndexAt(x: Int, y: Int): Int =
     chunkAt(x, y).colors(index(x, y))
 
-  /**
-   * Generates every chunk overlapping the inclusive world-space rectangle.
-   * Call once per frame before bulk height/color queries.
-   */
+  /** Generates every chunk overlapping the inclusive world-space rectangle. Call once per frame
+    * before bulk height/color queries.
+    */
   def ensureRegionLoaded(x0: Int, y0: Int, x1: Int, y1: Int): Unit = {
     val chunkX0 = x0 >> CHUNK_SHIFT
     val chunkX1 = x1 >> CHUNK_SHIFT
@@ -132,10 +129,9 @@ final class Terrain(val seed: Long) {
     lastChunkY = Int.MinValue
   }
 
-  /**
-   * Preloads chunks around a world position. Useful on a worker thread before
-   * swapping a freshly generated world onto the EDT.
-   */
+  /** Preloads chunks around a world position. Useful on a worker thread before swapping a freshly
+    * generated world onto the EDT.
+    */
   def preloadRegion(centerX: Double, centerY: Double, radius: Double): Unit = {
     val x0 = Math.floor(centerX - radius).toInt
     val y0 = Math.floor(centerY - radius).toInt
@@ -229,12 +225,11 @@ final class Terrain(val seed: Long) {
     (x & CHUNK_MASK) * CHUNK_SIZE + (y & CHUNK_MASK)
 
   private def key(chunkX: Int, chunkY: Int): java.lang.Long =
-    (chunkX.toLong << 32) ^ (chunkY.toLong & 0xFFFFFFFFL)
+    (chunkX.toLong << 32) ^ (chunkY.toLong & 0xffffffffL)
 
-  /**
-   * The world height function. All fields are deterministic functions of world
-   * coordinates, which makes chunk generation order-independent.
-   */
+  /** The world height function. All fields are deterministic functions of world coordinates, which
+    * makes chunk generation order-independent.
+    */
   private def generateHeight(worldX: Int, worldY: Int): Double = {
     val x = worldX.toDouble
     val y = worldY.toDouble
@@ -276,7 +271,7 @@ final class Terrain(val seed: Long) {
 
   private def surfaceColorIndex(worldX: Int, worldY: Int, height: Double): Int = {
     if (height < SEA_LEVEL - 3.0) return 0 // deep water
-    if (height < SEA_LEVEL) return 1       // shallow water
+    if (height < SEA_LEVEL) return 1 // shallow water
     if (height < SEA_LEVEL + 1.2) return 2 // beach
 
     val temperature = noise.octaveNoise(
@@ -298,9 +293,9 @@ final class Terrain(val seed: Long) {
     val rockLine = SEA_LEVEL + 24.0 + temperature * 5.0
     if (height > rockLine) return 7 // rock
 
-    if (temperature > 0.15 && moisture < 0.0) return 3  // desert
-    if (moisture > 0.12) return 5                       // forest
+    if (temperature > 0.15 && moisture < 0.0) return 3 // desert
+    if (moisture > 0.12) return 5 // forest
     if (temperature > 0.05 && moisture < 0.08) return 6 // savanna
-    4                                                   // grassland
+    4 // grassland
   }
 }
