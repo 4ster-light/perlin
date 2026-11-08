@@ -3,7 +3,8 @@ package dev.aster.terrain
 import dev.aster.noise.PerlinNoise
 
 import java.awt.Color
-import java.util.{LinkedHashMap, Map as JMap}
+import java.util.LinkedHashMap
+import java.util.{Map => JMap}
 
 object Terrain {
 

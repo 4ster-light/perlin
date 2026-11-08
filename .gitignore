@@ -45,3 +45,6 @@ bin/
 .bsp/
 .metals/
 .bloop/
+
+### Nix ###
+result

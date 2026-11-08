@@ -21,7 +21,37 @@
             scala
             jdk
             pkgs.scalafmt
+            pkgs.scalafix
           ];
+        };
+
+        checks.default = pkgs.stdenv.mkDerivation {
+          pname = "perlin-landscape-checks";
+          version = "0.1.0";
+          src = self;
+
+          nativeBuildInputs = [
+            scala
+            jdk
+            pkgs.scalafmt
+            pkgs.scalafix
+          ];
+
+          buildPhase = ''
+            export HOME=$TMPDIR
+            scala compile . --server=false
+            scalafmt --test .
+            scalafix --auto-classpath \
+              --scalac-options -Wunused:imports \
+              --scala-version 3.9.0 \
+              --check \
+              src
+          '';
+
+          installPhase = ''
+            mkdir -p $out
+            touch $out/checks-passed
+          '';
         };
 
         packages.default = pkgs.stdenv.mkDerivation {

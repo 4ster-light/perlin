@@ -2,7 +2,12 @@ package dev.aster.ui
 
 import dev.aster.terrain.Terrain
 
-import java.awt.{BasicStroke, Color, Font, FontMetrics, Graphics2D, RenderingHints}
+import java.awt.BasicStroke
+import java.awt.Color
+import java.awt.Font
+import java.awt.FontMetrics
+import java.awt.Graphics2D
+import java.awt.RenderingHints
 import java.awt.image.BufferedImage
 
 object HeadsUpDisplay {

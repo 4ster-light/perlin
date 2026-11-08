@@ -1,34 +1,33 @@
 package dev.aster.render
 
-import dev.aster.camera.{Camera, CollisionDetector}
+import dev.aster.camera.Camera
+import dev.aster.camera.CollisionDetector
 import dev.aster.terrain.Terrain
 import dev.aster.ui.HeadsUpDisplay
 
-import java.awt.{
-  BasicStroke,
-  Color,
-  Cursor,
-  Dimension,
-  Font,
-  Graphics,
-  Graphics2D,
-  Point,
-  RenderingHints,
-  Robot,
-  Toolkit
-}
-import java.awt.event.{
-  ActionEvent,
-  ActionListener,
-  KeyEvent,
-  KeyListener,
-  MouseAdapter,
-  MouseEvent,
-  MouseMotionAdapter
-}
-import java.awt.image.{BufferedImage, DataBufferInt}
+import java.awt.BasicStroke
+import java.awt.Color
+import java.awt.Cursor
+import java.awt.Dimension
+import java.awt.Font
+import java.awt.Graphics
+import java.awt.Graphics2D
+import java.awt.Point
+import java.awt.RenderingHints
+import java.awt.Robot
+import java.awt.Toolkit
+import java.awt.event.ActionEvent
+import java.awt.event.ActionListener
+import java.awt.event.KeyEvent
+import java.awt.event.KeyListener
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
+import java.awt.event.MouseMotionAdapter
+import java.awt.image.BufferedImage
+import java.awt.image.DataBufferInt
 import java.util.Arrays
-import javax.swing.{JPanel, Timer}
+import javax.swing.JPanel
+import javax.swing.Timer
 import scala.collection.mutable
 
 object Renderer3D {

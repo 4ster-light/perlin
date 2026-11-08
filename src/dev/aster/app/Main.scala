@@ -3,9 +3,19 @@ package dev.aster.app
 import dev.aster.render.Renderer3D
 import dev.aster.terrain.Terrain
 
-import java.awt.{BorderLayout, Color, FlowLayout, Font}
-import java.awt.event.{ActionListener, MouseAdapter, MouseEvent}
-import javax.swing.{BorderFactory, JButton, JFrame, JLabel, JPanel, SwingUtilities}
+import java.awt.BorderLayout
+import java.awt.Color
+import java.awt.FlowLayout
+import java.awt.Font
+import java.awt.event.ActionListener
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
+import javax.swing.BorderFactory
+import javax.swing.JButton
+import javax.swing.JFrame
+import javax.swing.JLabel
+import javax.swing.JPanel
+import javax.swing.SwingUtilities
 
 /** Entry point: builds the window, the initial world and the control bar. */
 object Main {
