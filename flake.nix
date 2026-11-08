@@ -14,6 +14,46 @@
         pkgs = nixpkgs.legacyPackages.${system};
         scala = pkgs.scala_3;
         jdk = pkgs.jdk21;
+
+        # Fixed-output derivation that pre-populates Coursier's cache with the
+        # project's Maven dependencies. This keeps the sandboxed build hermetic
+        # while still allowing the CLI to use Decline/Cats.
+        perlinDeps = pkgs.stdenvNoCC.mkDerivation {
+          pname = "perlin-coursier-cache";
+          version = "1";
+          src = ./project.scala;
+          dontUnpack = true;
+
+          nativeBuildInputs = [
+            scala
+            jdk
+          ];
+
+          outputHashMode = "recursive";
+          outputHashAlgo = "sha256";
+          outputHash = "sha256-mnwYj1wUUjPu8ZobT0P38r8pparVLnrFeFXcdtA0nFs=";
+
+          buildPhase = ''
+            export HOME=$TMPDIR
+            export COURSIER_CACHE=$out
+
+            mkdir -p source/src/main/scala/perlin
+            cp $src source/project.scala
+            cat > source/src/main/scala/perlin/Deps.scala <<'EOF'
+            package perlin
+
+            import com.monovore.decline.Opts
+
+            object Deps:
+              val unit: Opts[Unit] = Opts.unit
+            EOF
+
+            cd source
+            scala compile . --server=false --suppress-outdated-dependency-warning
+          '';
+
+          installPhase = "true";
+        };
       in
       {
         devShells.default = pkgs.mkShell {
@@ -39,6 +79,11 @@
 
           buildPhase = ''
             export HOME=$TMPDIR
+            export COURSIER_CACHE=$TMPDIR/coursier-cache
+            cp -r ${perlinDeps} $COURSIER_CACHE
+            chmod -R u+w $COURSIER_CACHE
+            export COURSIER_MODE=offline
+
             scala compile . --server=false
             scalafmt --test .
             scalafix --auto-classpath \
@@ -54,6 +99,8 @@
           '';
         };
 
+        packages.perlin-deps = perlinDeps;
+
         packages.default = pkgs.stdenv.mkDerivation {
           pname = "perlin-landscape";
           version = "0.1.0";
@@ -65,10 +112,16 @@
             pkgs.makeWrapper
           ];
 
-          # Let scala-cli resolve the Scala version and main class from
+          # Let the Scala runner resolve the Scala version and main class from
           # project.scala, compile the sources, and produce a self-contained
           # runnable assembly JAR.
           buildPhase = ''
+            export HOME=$TMPDIR
+            export COURSIER_CACHE=$TMPDIR/coursier-cache
+            cp -r ${perlinDeps} $COURSIER_CACHE
+            chmod -R u+w $COURSIER_CACHE
+            export COURSIER_MODE=offline
+
             scala --power package . \
               --assembly \
               --server=false \
