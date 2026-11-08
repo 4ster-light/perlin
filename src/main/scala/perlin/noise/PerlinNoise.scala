@@ -3,11 +3,9 @@ package perlin.noise
 import scala.util.Random
 
 /** Classic 2D Perlin noise with a seeded permutation table. */
-final class PerlinNoise(seed: Long) {
+final class PerlinNoise(val seed: Long) {
 
   private val permutation = new Array[Int](512)
-
-  def this() = this(System.currentTimeMillis())
 
   locally {
     val p = new Array[Int](256)
@@ -34,6 +32,9 @@ final class PerlinNoise(seed: Long) {
       i += 1
     }
   }
+
+  /** Exposes a copy of the permutation table for reference-vector tests. */
+  def permutationTable: IndexedSeq[Int] = permutation.toIndexedSeq
 
   /** Generate a 2D Perlin noise value at coordinates (x, y), between -1 and 1. */
   def noise(x: Double, y: Double): Double = {
