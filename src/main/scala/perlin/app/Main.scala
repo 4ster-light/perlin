@@ -23,7 +23,11 @@ object Main {
   private val PRELOAD_RADIUS = Renderer3D.RENDER_DISTANCE + 24.0
 
   def main(args: Array[String]): Unit = {
-    SwingUtilities.invokeLater(() => createAndShowGui())
+    if args.isEmpty then SwingUtilities.invokeLater(() => createAndShowGui())
+    else {
+      val exitCode = perlin.cli.CliMain.run(args)
+      if exitCode != 0 then System.exit(exitCode)
+    }
   }
 
   private def createAndShowGui(): Unit = {
