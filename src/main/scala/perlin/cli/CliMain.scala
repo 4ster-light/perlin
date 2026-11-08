@@ -1,5 +1,9 @@
 package perlin.cli
 
+import cats.syntax.all.*
+import com.monovore.decline.Argument
+import com.monovore.decline.Command
+import com.monovore.decline.Opts
 import perlin.execution.ExecutionStrategy
 import perlin.output.AsciiExporter
 import perlin.output.PngExporter
@@ -11,68 +15,222 @@ import perlin.world.WorldMap
 
 import java.nio.file.Path
 
-/** Dependency-free command-line entry point.
+/** Command-line entry point built with Decline.
   *
-  * The default `perlin.app.Main` launches the interactive viewer when called without arguments;
-  * with arguments it delegates here.
+  * `perlin.app.Main` launches the interactive viewer when called without arguments; with arguments
+  * it delegates here.
   */
 object CliMain:
 
   private val DefaultSeed = 1337L
 
-  private final case class Options(
-      seed: Long = DefaultSeed,
-      width: Int = 512,
-      height: Int = 512,
-      octaves: Int = 6,
-      scale: Double = 0.0025,
-      lacunarity: Double = 2.0,
-      persistence: Double = 0.5,
-      strategy: ExecutionStrategy = ExecutionStrategy.Parallel,
-      format: String = "png",
-      output: Option[Path] = None,
-      levels: Int = 8,
-      colored: Boolean = true,
-      repetitions: Int = 3,
-      warmupRuns: Int = 1
+  private enum OutputFormat:
+    case Png, Ascii, Svg
+
+  private given Argument[OutputFormat] =
+    Argument.fromMap(
+      "format",
+      Map(
+        "png" -> OutputFormat.Png,
+        "ascii" -> OutputFormat.Ascii,
+        "svg" -> OutputFormat.Svg
+      )
+    )
+
+  private given Argument[ExecutionStrategy] =
+    Argument.fromMap(
+      "strategy",
+      ExecutionStrategy.all.map(strategy => strategy.name -> strategy).toMap
+    )
+
+  private final case class MapOptions(
+      seed: Long,
+      width: Int,
+      height: Int,
+      octaves: Int,
+      scale: Double,
+      lacunarity: Double,
+      persistence: Double,
+      strategy: ExecutionStrategy
+  ):
+    def parameters: TerrainParameters =
+      TerrainParameters(
+        seed = seed,
+        octaves = octaves,
+        lacunarity = lacunarity,
+        persistence = persistence,
+        scale = scale
+      )
+
+  private final case class OutputOptions(
+      format: OutputFormat,
+      output: Option[Path],
+      levels: Int,
+      colored: Boolean
   )
+
+  private final case class BenchmarkOptions(
+      repetitions: Int,
+      warmupRuns: Int
+  )
+
+  private sealed trait CliCommand
+  private object CliCommand:
+    final case class Generate(map: MapOptions, output: OutputOptions) extends CliCommand
+    final case class Render(map: MapOptions, output: OutputOptions) extends CliCommand
+    final case class Benchmark(map: MapOptions, options: BenchmarkOptions) extends CliCommand
+    case object Gui extends CliCommand
+
+  private val seedOption =
+    Opts
+      .option[Long]("seed", "World seed.", metavar = "long")
+      .withDefault(DefaultSeed)
+
+  private val widthOption =
+    Opts.option[Int]("width", "Map width in cells.", metavar = "int").withDefault(512)
+
+  private val heightOption =
+    Opts.option[Int]("height", "Map height in cells.", metavar = "int").withDefault(512)
+
+  private val octavesOption =
+    Opts.option[Int]("octaves", "fBm octave count.", metavar = "int").withDefault(6)
+
+  private val scaleOption =
+    Opts
+      .option[Double]("scale", "World units per grid cell.", metavar = "double")
+      .withDefault(0.0025)
+
+  private val lacunarityOption =
+    Opts
+      .option[Double]("lacunarity", "Octave frequency multiplier.", metavar = "double")
+      .withDefault(2.0)
+
+  private val persistenceOption =
+    Opts
+      .option[Double]("persistence", "Octave amplitude multiplier.", metavar = "double")
+      .withDefault(0.5)
+
+  private val strategyOption =
+    Opts
+      .option[ExecutionStrategy](
+        "strategy",
+        s"Generation strategy: ${ExecutionStrategy.names}.",
+        metavar = "name"
+      )
+      .withDefault(ExecutionStrategy.Parallel)
+
+  private val mapOptions =
+    (
+      seedOption,
+      widthOption,
+      heightOption,
+      octavesOption,
+      scaleOption,
+      lacunarityOption,
+      persistenceOption,
+      strategyOption
+    ).mapN(MapOptions.apply)
+
+  private val formatOption =
+    Opts
+      .option[OutputFormat]("format", "Output format: png, ascii or svg.", metavar = "name")
+      .withDefault(OutputFormat.Png)
+
+  private val outputOption =
+    Opts
+      .option[Path]("output", "Output file path.", metavar = "path")
+      .orNone
+
+  private val levelsOption =
+    Opts
+      .option[Int]("levels", "Number of SVG contour levels.", metavar = "int")
+      .withDefault(8)
+
+  private val coloredOption =
+    Opts.flag("no-color", "Disable ANSI colour in ASCII output.").orTrue
+
+  private val outputOptions =
+    (formatOption, outputOption, levelsOption, coloredOption).mapN(OutputOptions.apply)
+
+  private val repetitionsOption =
+    Opts
+      .option[Int]("reps", "Benchmark repetitions.", metavar = "int")
+      .withDefault(3)
+
+  private val warmupOption =
+    Opts
+      .option[Int]("warmup", "Benchmark warm-up runs.", metavar = "int")
+      .withDefault(1)
+
+  private val benchmarkOptions =
+    (repetitionsOption, warmupOption).mapN(BenchmarkOptions.apply)
+
+  private val generateCommand =
+    Opts.subcommand("generate", "Generate a map and print a biome summary.") {
+      (mapOptions, outputOptions).mapN(CliCommand.Generate.apply)
+    }
+
+  private val renderCommand =
+    Opts.subcommand("render", "Generate and export a map.") {
+      (mapOptions, outputOptions).mapN(CliCommand.Render.apply)
+    }
+
+  private val benchmarkCommand =
+    Opts.subcommand("benchmark", "Benchmark sequential, parallel and chunked generation.") {
+      (mapOptions, benchmarkOptions).mapN(CliCommand.Benchmark.apply)
+    }
+
+  private val guiCommand =
+    Opts.subcommand("gui", "Launch the interactive Swing viewer.") {
+      Opts.unit.map(_ => CliCommand.Gui)
+    }
+
+  private val command =
+    Command(
+      "perlin",
+      "Seeded Perlin-noise landscape generator with PNG, ASCII and SVG export."
+    )(
+      generateCommand
+        .orElse(renderCommand)
+        .orElse(benchmarkCommand)
+        .orElse(guiCommand)
+    )
 
   def main(args: Array[String]): Unit =
     val exitCode = run(args)
     if exitCode != 0 then System.exit(exitCode)
 
   def run(args: Array[String]): Int =
-    args.toList match
-      case Nil                    => printHelp(); 0
-      case ("--help" | "-h") :: _ => printHelp(); 0
-      case "help" :: _            => printHelp(); 0
-      case "generate" :: rest     => withOptions(rest)(generate)
-      case "render" :: rest       => withOptions(rest)(render)
-      case "benchmark" :: rest    => withOptions(rest)(benchmark)
-      case "gui" :: _             => perlin.app.Main.main(Array.empty); 0
-      case command :: _           =>
-        System.err.println(s"error: unknown command '$command'")
-        printHelp()
-        2
+    command.parse(args.toIndexedSeq) match
+      case Left(help) =>
+        System.err.println(help)
+        if help.errors.nonEmpty then 2 else 0
+      case Right(cliCommand) =>
+        execute(cliCommand)
 
-  private def withOptions(args: List[String])(action: Options => Int): Int =
-    parseOptions(args) match
-      case Left("help") =>
-        printHelp()
-        0
-      case Left(message) =>
-        System.err.println(s"error: $message")
-        printHelp()
-        2
-      case Right(options) =>
-        action(options)
+  private def execute(cliCommand: CliCommand): Int = cliCommand match
+    case CliCommand.Generate(map, output)   => generate(map, output)
+    case CliCommand.Render(map, output)     => render(map, output)
+    case CliCommand.Benchmark(map, options) =>
+      Benchmark.run(
+        map.width,
+        map.height,
+        map.parameters,
+        options.repetitions,
+        options.warmupRuns
+      )
+      0
+    case CliCommand.Gui =>
+      perlin.app.Main.main(Array.empty)
+      0
 
-  private def generate(options: Options): Int =
-    val map = generateMap(options)
+  private def generate(mapOptions: MapOptions, outputOptions: OutputOptions): Int =
+    val map = generateMap(mapOptions)
     val counts = map.biomeCounts
     println(
-      s"Generated ${options.width}x${options.height} map " +
-        s"(seed ${options.seed}, strategy ${options.strategy.name}, ${options.octaves} octaves)"
+      s"Generated ${mapOptions.width}x${mapOptions.height} map " +
+        s"(seed ${mapOptions.seed}, strategy ${mapOptions.strategy.name}, " +
+        s"${mapOptions.octaves} octaves)"
     )
     counts.toSeq
       .sortBy { case (biome, _) => Biome.values.indexOf(biome) }
@@ -80,37 +238,28 @@ object CliMain:
         println(f"  ${biome.toString}%-10s $count%8d")
       }
 
-    options.output match
+    outputOptions.output match
       case Some(path) =>
-        writeMap(map, path, options)
-        println(s"Wrote ${options.format} to $path")
-      case None if options.format == "ascii" =>
-        println(AsciiExporter.render(map, options.colored))
+        writeMap(map, path, outputOptions)
+        println(s"Wrote ${outputOptions.format.toString.toLowerCase} to $path")
+      case None if outputOptions.format == OutputFormat.Ascii =>
+        println(AsciiExporter.render(map, outputOptions.colored))
       case None => ()
     0
 
-  private def render(options: Options): Int =
-    val map = generateMap(options)
-    val output = options.output.getOrElse(defaultOutput(options.format))
-    writeMap(map, output, options)
+  private def render(mapOptions: MapOptions, outputOptions: OutputOptions): Int =
+    val map = generateMap(mapOptions)
+    val output = outputOptions.output.getOrElse(defaultOutput(outputOptions.format))
+    writeMap(map, output, outputOptions)
     println(
-      s"Wrote ${options.format} render to $output " +
-        s"(${options.width}x${options.height}, seed ${options.seed}, ${options.strategy.name})"
+      s"Wrote ${outputOptions.format.toString.toLowerCase} render to $output " +
+        s"(${mapOptions.width}x${mapOptions.height}, seed ${mapOptions.seed}, " +
+        s"${mapOptions.strategy.name})"
     )
     0
 
-  private def benchmark(options: Options): Int =
-    Benchmark.run(
-      options.width,
-      options.height,
-      parameters(options),
-      options.repetitions,
-      options.warmupRuns
-    )
-    0
-
-  private def generateMap(options: Options): WorldMap =
-    val generator = new WorldGenerator(parameters(options))
+  private def generateMap(options: MapOptions): WorldMap =
+    val generator = new WorldGenerator(options.parameters)
     val rows = options.strategy.generateRows(generator, options.width, options.height)
     WorldMap(
       options.width,
@@ -118,166 +267,14 @@ object CliMain:
       LazyList.from(rows).map(row => LazyList.from(row))
     )
 
-  private def writeMap(map: WorldMap, path: Path, options: Options): Unit =
+  private def writeMap(map: WorldMap, path: Path, options: OutputOptions): Unit =
     options.format match
-      case "png"   => PngExporter.write(map, path)
-      case "ascii" => AsciiExporter.write(map, path, options.colored)
-      case "svg"   => SvgExporter.write(map, path, options.levels)
-      case other   => throw new IllegalArgumentException(s"unsupported format: $other")
+      case OutputFormat.Png   => PngExporter.write(map, path)
+      case OutputFormat.Ascii => AsciiExporter.write(map, path, options.colored)
+      case OutputFormat.Svg   => SvgExporter.write(map, path, options.levels)
 
-  private def defaultOutput(format: String): Path =
+  private def defaultOutput(format: OutputFormat): Path =
     format match
-      case "png"   => Path.of("map.png")
-      case "ascii" => Path.of("map.txt")
-      case "svg"   => Path.of("map.svg")
-      case other   => throw new IllegalArgumentException(s"unsupported format: $other")
-
-  private def parameters(options: Options): TerrainParameters =
-    TerrainParameters(
-      seed = options.seed,
-      octaves = options.octaves,
-      lacunarity = options.lacunarity,
-      persistence = options.persistence,
-      scale = options.scale
-    )
-
-  private def parseOptions(args: List[String]): Either[String, Options] =
-    def parseLong(name: String, value: String): Either[String, Long] =
-      value.toLongOption.toRight(s"$name expects an integer, got '$value'")
-
-    def parseInt(name: String, value: String): Either[String, Int] =
-      value.toIntOption.toRight(s"$name expects an integer, got '$value'")
-
-    def parseDouble(name: String, value: String): Either[String, Double] =
-      value.toDoubleOption.toRight(s"$name expects a number, got '$value'")
-
-    def parseFormat(value: String): Either[String, String] =
-      value.toLowerCase match
-        case "png" | "ascii" | "svg" => Right(value.toLowerCase)
-        case other                   => Left(s"--format must be png, ascii or svg, got '$other'")
-
-    def loop(remaining: List[String], options: Options): Either[String, Options] =
-      remaining match
-        case Nil                       => Right(options)
-        case ("--help" | "-h") :: _    => Left("help")
-        case "--seed" :: value :: tail =>
-          parseLong("--seed", value).flatMap(parsed => loop(tail, options.copy(seed = parsed)))
-        case option :: tail if option.startsWith("--seed=") =>
-          parseLong("--seed", option.drop("--seed=".length))
-            .flatMap(parsed => loop(tail, options.copy(seed = parsed)))
-        case "--width" :: value :: tail =>
-          parseInt("--width", value).flatMap(parsed => loop(tail, options.copy(width = parsed)))
-        case option :: tail if option.startsWith("--width=") =>
-          parseInt("--width", option.drop("--width=".length))
-            .flatMap(parsed => loop(tail, options.copy(width = parsed)))
-        case "--height" :: value :: tail =>
-          parseInt("--height", value).flatMap(parsed => loop(tail, options.copy(height = parsed)))
-        case option :: tail if option.startsWith("--height=") =>
-          parseInt("--height", option.drop("--height=".length))
-            .flatMap(parsed => loop(tail, options.copy(height = parsed)))
-        case "--octaves" :: value :: tail =>
-          parseInt("--octaves", value).flatMap(parsed => loop(tail, options.copy(octaves = parsed)))
-        case option :: tail if option.startsWith("--octaves=") =>
-          parseInt("--octaves", option.drop("--octaves=".length))
-            .flatMap(parsed => loop(tail, options.copy(octaves = parsed)))
-        case "--scale" :: value :: tail =>
-          parseDouble("--scale", value).flatMap(parsed => loop(tail, options.copy(scale = parsed)))
-        case option :: tail if option.startsWith("--scale=") =>
-          parseDouble("--scale", option.drop("--scale=".length))
-            .flatMap(parsed => loop(tail, options.copy(scale = parsed)))
-        case "--lacunarity" :: value :: tail =>
-          parseDouble("--lacunarity", value)
-            .flatMap(parsed => loop(tail, options.copy(lacunarity = parsed)))
-        case option :: tail if option.startsWith("--lacunarity=") =>
-          parseDouble("--lacunarity", option.drop("--lacunarity=".length))
-            .flatMap(parsed => loop(tail, options.copy(lacunarity = parsed)))
-        case "--persistence" :: value :: tail =>
-          parseDouble("--persistence", value)
-            .flatMap(parsed => loop(tail, options.copy(persistence = parsed)))
-        case option :: tail if option.startsWith("--persistence=") =>
-          parseDouble("--persistence", option.drop("--persistence=".length))
-            .flatMap(parsed => loop(tail, options.copy(persistence = parsed)))
-        case "--strategy" :: value :: tail =>
-          ExecutionStrategy
-            .parse(value)
-            .flatMap(parsed => loop(tail, options.copy(strategy = parsed)))
-        case option :: tail if option.startsWith("--strategy=") =>
-          ExecutionStrategy
-            .parse(option.drop("--strategy=".length))
-            .flatMap(parsed => loop(tail, options.copy(strategy = parsed)))
-        case "--format" :: value :: tail =>
-          parseFormat(value).flatMap(parsed => loop(tail, options.copy(format = parsed)))
-        case option :: tail if option.startsWith("--format=") =>
-          parseFormat(option.drop("--format=".length))
-            .flatMap(parsed => loop(tail, options.copy(format = parsed)))
-        case "--output" :: value :: tail =>
-          loop(tail, options.copy(output = Some(Path.of(value))))
-        case option :: tail if option.startsWith("--output=") =>
-          loop(tail, options.copy(output = Some(Path.of(option.drop("--output=".length)))))
-        case "--levels" :: value :: tail =>
-          parseInt("--levels", value).flatMap(parsed => loop(tail, options.copy(levels = parsed)))
-        case option :: tail if option.startsWith("--levels=") =>
-          parseInt("--levels", option.drop("--levels=".length))
-            .flatMap(parsed => loop(tail, options.copy(levels = parsed)))
-        case "--reps" :: value :: tail =>
-          parseInt("--reps", value)
-            .flatMap(parsed => loop(tail, options.copy(repetitions = parsed)))
-        case option :: tail if option.startsWith("--reps=") =>
-          parseInt("--reps", option.drop("--reps=".length))
-            .flatMap(parsed => loop(tail, options.copy(repetitions = parsed)))
-        case "--warmup" :: value :: tail =>
-          parseInt("--warmup", value)
-            .flatMap(parsed => loop(tail, options.copy(warmupRuns = parsed)))
-        case option :: tail if option.startsWith("--warmup=") =>
-          parseInt("--warmup", option.drop("--warmup=".length))
-            .flatMap(parsed => loop(tail, options.copy(warmupRuns = parsed)))
-        case "--no-color" :: tail =>
-          loop(tail, options.copy(colored = false))
-        case option :: Nil if option.startsWith("--") =>
-          Left(s"option '$option' requires a value")
-        case option :: _ =>
-          Left(s"unknown option '$option'")
-
-    loop(args, Options())
-
-  private def printHelp(): Unit =
-    println(
-      """perlin - seeded Perlin landscape generator
-        |
-        |Usage:
-        |  perlin                         Launch the interactive viewer
-        |  perlin gui                     Launch the interactive viewer
-        |  perlin generate [options]      Generate a map and print a biome summary
-        |  perlin render [options]        Generate and export a map
-        |  perlin benchmark [options]     Benchmark sequential/parallel/chunked generation
-        |
-        |Commands:
-        |  generate     Generate a map. Writes a file when --output is supplied.
-        |  render       Generate and write PNG, ASCII or SVG output.
-        |  benchmark    JVM warm-up, repeated runs and speedup ratios.
-        |  gui          Start the first-person Swing viewer.
-        |
-        |Options:
-        |  --seed <long>          World seed (default 1337)
-        |  --width <int>          Map width (default 512)
-        |  --height <int>         Map height (default 512)
-        |  --octaves <int>        fBm octaves (default 6)
-        |  --scale <double>       World units per grid cell (default 0.0025)
-        |  --lacunarity <double>  Octave frequency multiplier (default 2.0)
-        |  --persistence <double> Octave amplitude multiplier (default 0.5)
-        |  --strategy <name>      sequential, parallel or chunked (default parallel)
-        |  --format <name>        png, ascii or svg (default png)
-        |  --output <path>        Output file (defaults: map.png, map.txt, map.svg)
-        |  --levels <int>         SVG contour levels (default 8)
-        |  --no-color             Disable ANSI colour in ASCII output
-        |  --reps <int>           Benchmark repetitions (default 3)
-        |  --warmup <int>         Benchmark warm-up runs (default 1)
-        |  --help, -h             Show this help
-        |
-        |Examples:
-        |  perlin render --seed 42 --width 1024 --height 1024 --output map.png
-        |  perlin render --format ascii --width 120 --height 60 --no-color
-        |  perlin render --format svg --levels 12 --output contours.svg
-        |  perlin benchmark --width 1024 --height 1024 --octaves 6 --reps 5
-        |""".stripMargin
-    )
+      case OutputFormat.Png   => Path.of("map.png")
+      case OutputFormat.Ascii => Path.of("map.txt")
+      case OutputFormat.Svg   => Path.of("map.svg")
