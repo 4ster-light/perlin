@@ -1,15 +1,20 @@
 # Infinite Procedural Landscape
 
+[![Scala](https://img.shields.io/badge/Scala-%23DC322F.svg?logo=scala&logoColor=white&style=flat-square)](https://www.scala-lang.org)
+[![Nix flake](https://img.shields.io/badge/Nix-flake-5277C3?logo=nixos&logoColor=white&style=flat-square)](flake.nix)
+[![License: MIT](https://img.shields.io/badge/license-MIT-red?style=flat-square)](LICENSE)
+[![Sponsor](https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-EA4AAA?logo=githubsponsors&logoColor=white&style=flat-square)](https://github.com/sponsors/4ster-light)
+
 An infinite 3D procedural landscape generated with Perlin and ridged noise,
 featuring a **first-person immersive experience**, implemented in **Scala 3**
 (Swing/AWT) with real-time software 3D visualization.
 
-The same generator is available as a Decline-powered command-line tool that
+The same generator provides a Decline-powered command-line tool that
 exports seeded PNG maps, ANSI-coloured ASCII, and layered SVG contours.
 
-![Showcase Image](./Showcase.png)
-
-![Example map generated with seed 2024](./docs/example-map.png)
+| Example Window                        | Example rendered PNG                                           |
+|:-------------------------------------:|:--------------------------------------------------------------:|
+| ![Showcase Image](./img/Showcase.png) | ![Example map generated with seed 2024](./img/example-map.png) |
 
 ## Features
 
@@ -180,7 +185,6 @@ Build without launching it:
 
 ```bash
 nix build github:4ster-light/perlin
-./result/bin/perlin-landscape
 ```
 
 ### Run from a local clone with Nix
@@ -188,28 +192,15 @@ nix build github:4ster-light/perlin
 ```bash
 git clone https://github.com/4ster-light/perlin.git
 cd perlin
-nix develop
-scala run .
-```
-
-Or as a one-liner:
-
-```bash
-nix develop -c scala run .
-```
-
-If you already have Scala tooling and only want the project's compiler version:
-
-```bash
-nix shell nixpkgs#scala_3 -c scala run .
+nix run .
 ```
 
 ### Run with an existing Scala toolchain
 
-Requires Scala 3.9+ and JDK 21+ (the Nix development shell uses JDK 21):
+If you don't have Nix, as long as Scala runner (Scala 3.5+, prefer 3.9.0 for this project) or `scala-cli` is available:
 
 ```bash
-scala run .
+scala run . # or scala-cli run .
 ```
 
 Scala version, compiler options and the main class are declared in
@@ -262,7 +253,7 @@ nix run . -- render --seed 42 --width 1024 --height 1024 --output map.png
 ./result/bin/perlin-landscape benchmark --width 1024 --height 1024
 ```
 
-The CLI is built with [Decline](https://monovore.com/decline/), so subcommands,
+The CLI is built with [Decline](https://monovore.com/decline), so subcommands,
 typed option parsing, validation errors and `--help` output come from the
 library rather than a hand-written parser. Cats is pulled in transitively by
 Decline. The renderer, terrain code and exporters remain hand-written on JDK
@@ -320,7 +311,7 @@ that parallelism changes only execution, not the generated world.
 Install the application into your Nix profile:
 
 ```bash
-nix profile install github:4ster-light/perlin
+nix profile add github:4ster-light/perlin
 perlin-landscape
 ```
 
@@ -354,7 +345,7 @@ Then expose the package:
 }
 ```
 
-From a local checkout, `nix profile install .` installs the same package.
+From a local checkout, `nix profile add .` installs the same package.
 
 ## Controls
 
@@ -586,9 +577,9 @@ scalafix --auto-classpath --scalac-options -Wunused:imports \
 The helper script runs the whole local check:
 
 ```bash
-./scripts/check.sh
+scala run scripts/check.scala
 # or, inside the Nix shell:
-nix develop -c ./scripts/check.sh
+nix develop -c scala run scripts/check.scala
 ```
 
 Run the full Nix check suite:
